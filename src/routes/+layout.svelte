@@ -4,10 +4,12 @@
     import { Files, TextSearch, Home, LogOut } from 'lucide-svelte';
 
     import { invalidate, goto } from '$app/navigation';
+    import { page } from '$app/stores';
     import { onMount } from 'svelte';
     
     let { data, children } = $props();
     let { supabase, session } = $derived(data);
+    let currentPath = $derived($page.url.pathname);
 
     async function handleSignOut() {
         await supabase.auth.signOut();
@@ -38,17 +40,17 @@
     </div>
 
     <nav class="nav-links">
-        <a href="/account" class="nav-link">
+        <a href="/account" class="nav-link" class:active={currentPath === '/account'}>
             <Home size={18} strokeWidth={2.5} />
             <span>Home</span>
         </a>
 
-        <a href="/workflow" class="nav-link">
+        <a href="/workflow" class="nav-link" class:active={currentPath.startsWith('/workflow')}>
             <Files size={18} strokeWidth={2.5} />
             <span>Workflows</span>
         </a>
 
-        <a href="/view" class="nav-link">
+        <a href="/view" class="nav-link" class:active={currentPath.startsWith('/view')}>
             <TextSearch size={18} strokeWidth={2.5} />
             <span>Contracts</span>
         </a>
@@ -120,6 +122,12 @@
 
     .nav-link:active {
         transform: scale(0.97);
+    }
+
+    .nav-link.active {
+        color: #7B1113;
+        background-color: #fff0f0;
+        font-weight: 600;
     }
 
     .signout-btn {

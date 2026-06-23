@@ -330,13 +330,12 @@
                             </div>
                         </th>
                     {/each}
-                    <th class="th-actions">ACTIONS</th>
                 </tr>
             </thead>
             <tbody>
                 {#if visibleContracts.length === 0}
                     <tr>
-                        <td colspan="7" style="text-align: center; color: #6b7280; padding: 2rem;">
+                        <td colspan="6" style="text-align: center; color: #6b7280; padding: 2rem;">
                             No contracts found matching your filters.
                         </td>
                     </tr>
@@ -375,11 +374,6 @@
                                     <option value="Completed">Completed</option>
                                     <option value="Terminated">Terminated</option>
                                 </select>
-                            </td>
-                            <td class="td-actions">
-                                <button class="icon-btn delete-row-btn" onclick={() => confirmDelete([contract])} title="Delete contract">
-                                    <Trash2 size={16} strokeWidth={2} />
-                                </button>
                             </td>
                         </tr>
                     {/each}
@@ -632,31 +626,11 @@
         white-space: nowrap;
     }
 
-    th:nth-child(1), td:nth-child(1) { width: 36%; } /* Title */
-    th:nth-child(2), td:nth-child(2) { width: 14%; } /* Created */
-    th:nth-child(3), td:nth-child(3) { width: 14%; } /* Modified */
-    th:nth-child(4), td:nth-child(4) { width: 18%; } /* Type */
-    th:nth-child(5), td:nth-child(5) { width: 10%; } /* Status */
-    th:nth-child(6), td:nth-child(6) { width: 8%; } /* Actions */
-
-    .th-checkbox, .td-checkbox { width: 40px; text-align: center; }
+    .th-checkbox, .td-checkbox { width: 48px; text-align: center; }
     .th-checkbox input, .td-checkbox input { width: 18px; height: 18px; cursor: pointer; accent-color: #7B1113; }
-    .th-actions { width: 70px; text-align: center; }
-    .td-actions { text-align: center; }
 
     tr.selected { background-color: #fef2f2; }
     tr.selected:hover { background-color: #fde8e8; }
-
-    .icon-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 6px;
-        border-radius: 6px;
-        color: #9ca3af;
-        transition: all 0.15s;
-    }
-    .icon-btn:hover { background-color: #fee2e2; color: #dc2626; }
 
     .action-btn {
         display: inline-flex; align-items: center; gap: 6px;
@@ -706,8 +680,6 @@
     .csv-label:hover { border-color: #035a24; }
     .csv-result { font-size: 0.9rem; padding: 8px; border-radius: 6px; margin-bottom: 12px; }
     .csv-success { color: #035a24; background: #e6f4ea; }
-
-    .delete-row-btn { margin: 0 auto; display: inline-flex; justify-content: center; }
 
     .contract-link {
         color: #02461C;
