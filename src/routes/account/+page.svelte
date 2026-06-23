@@ -21,30 +21,34 @@
             isEditing = false
         }
     }
-    const handleSignOut: SubmitFunction = () => {
-        loading = true
-        return async ({ update }) => {
-            loading = false
-            update()
-        }
-    }
 </script>
 
 <div class="account-container">
-    <div class="header-section">
-        <h1 class="page-title">Welcome back, {username}!</h1>
-    </div>
+    <h1 class="page-title">Welcome, {fullName || 'user'}!</h1>
 
     <div class="card">
         <div class="card-header">
             <h2 class="section-title">Account Details</h2>
-            <div class="toggle-edit">
-                <input type="checkbox" id="isEditing" name="isEditing" bind:checked={isEditing} class="checkbox-input" />
-                <label for="isEditing" class="checkbox-label">Edit Details</label>
+            <div class="header-actions">
+                {#if isEditing}
+                    <button
+                        type="submit"
+                        form="profile-form"
+                        class="btn btn-primary"
+                        disabled={loading}
+                    >
+                        {loading ? 'Saving...' : 'Save Changes'}
+                    </button>
+                {:else}
+                    <button class="btn btn-secondary" onclick={() => isEditing = true}>
+                        Edit Details
+                    </button>
+                {/if}
             </div>
         </div>
 
         <form
+            id="profile-form"
             class="profile-form"
             method="post"
             action="?/update"
@@ -52,16 +56,6 @@
             bind:this={profileForm}
         >
             <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label" for="email">Email</label>
-                    <input class="input-field" id="email" type="text" value={session.user.email} disabled />
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="access_level">Access Level</label>
-                    <input class="input-field" id="access_level" name="access_level" type="text" value={form?.access_level ?? access_level} disabled={access_level !== "Workflow Manager" || !isEditing} />
-                </div>
-                
                 <div class="form-group">
                     <label class="form-label" for="fullName">Full Name</label>
                     <input class="input-field" id="fullName" name="fullName" type="text" value={form?.fullName ?? fullName} disabled={!isEditing} />
@@ -71,21 +65,17 @@
                     <label class="form-label" for="username">Username</label>
                     <input class="input-field" id="username" name="username" type="text" value={form?.username ?? username} disabled={!isEditing} />
                 </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <input class="input-field" id="email" type="text" value={session.user.email} disabled />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="access_level">Access Level</label>
+                    <input class="input-field" id="access_level" name="access_level" type="text" value={form?.access_level ?? access_level} disabled={access_level !== "Workflow Manager" || !isEditing} />
+                </div>
             </div>
-
-            <div class="form-actions">
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                    disabled={loading || !isEditing}
-                >
-                    {loading ? 'Updating...' : 'Save Changes'}
-                </button>
-            </div>
-        </form>
-
-        <form method="post" action="?/signout" use:enhance={handleSignOut} class="signout-form">
-            <button class="btn btn-outline-danger" disabled={loading}>Sign Out</button>
         </form>
     </div>
 
@@ -149,15 +139,11 @@
         font-family: 'Poppins', sans-serif;
     }
 
-    .header-section {
-        margin-bottom: 2rem;
-    }
-
     .page-title {
         font-size: 2.25rem;
         font-weight: 700;
         color: #02461C;
-        margin: 0;
+        margin: 0 0 1.5rem 0;
     }
 
     .card {
@@ -185,37 +171,17 @@
         margin: 0;
     }
 
-    /* Toggle Edit Switch/Checkbox styles */
-    .toggle-edit {
+    .header-actions {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        background-color: #f3f4f6;
-        padding: 0.5rem 1rem;
-        border-radius: 9999px;
-    }
-
-    .checkbox-input {
-        width: 1.25rem;
-        height: 1.25rem;
-        cursor: pointer;
-        accent-color: #035a24;
-    }
-
-    .checkbox-label {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #374151;
-        cursor: pointer;
-        user-select: none;
     }
 
     /* Form Styles */
     .form-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        grid-template-columns: 1fr 1fr;
         gap: 1.5rem;
-        margin-bottom: 2rem;
     }
 
     .form-group {
@@ -251,19 +217,6 @@
         background-color: #f3f4f6;
         color: #9ca3af;
         cursor: not-allowed;
-    }
-
-    .form-actions {
-        display: flex;
-        justify-content: flex-start;
-        margin-bottom: 1.5rem;
-    }
-
-    .signout-form {
-        border-top: 1px solid #e5e7eb;
-        padding-top: 1.5rem;
-        display: flex;
-        justify-content: flex-end;
     }
 
     /* Buttons */
@@ -304,17 +257,6 @@
 
     .btn-secondary:hover:not(:disabled) {
         background-color: #e5e7eb;
-    }
-
-    .btn-outline-danger {
-        background-color: transparent;
-        color: #7B1113;
-        border-color: #7B1113;
-    }
-
-    .btn-outline-danger:hover:not(:disabled) {
-        background-color: #7B1113;
-        color: white;
     }
 
     .btn-sm {

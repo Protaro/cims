@@ -39,13 +39,6 @@ export const actions: Actions = {
       username,
     }
   },
-  signout: async ({ locals: { supabase, safeGetSession } }) => {
-    const { session } = await safeGetSession()
-    if (session) {
-      await supabase.auth.signOut()
-      redirect(303, '/')
-    }
-  },
   update_access_level: async ({ request, locals: { supabase, safeGetSession } }) => {
     const { session  } = await safeGetSession()
     //const { data: profile, error: profileError } = await supabase

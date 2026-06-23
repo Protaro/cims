@@ -1,13 +1,18 @@
 <script lang="ts">
     import upSeal from '$lib/assets/UP-Seal.png';
     import upseLogo from '$lib/assets/UPSE CMS logo.png'; 
-    import { Files, FilePlusCorner, TextSearch, Home } from 'lucide-svelte'; // Imported Home icon
+    import { Files, TextSearch, Home, LogOut } from 'lucide-svelte';
 
-    import { invalidate } from '$app/navigation';
+    import { invalidate, goto } from '$app/navigation';
     import { onMount } from 'svelte';
     
     let { data, children } = $props();
     let { supabase, session } = $derived(data);
+
+    async function handleSignOut() {
+        await supabase.auth.signOut();
+        goto('/');
+    }
 
     onMount(() => {
         const { data } = supabase.auth.onAuthStateChange((event, _session) => {
@@ -24,6 +29,7 @@
     <link rel="icon" href={upSeal} />
 </svelte:head>
 
+{#if session}
 <header class="header-container">
     <div class="logo-section">
         <a href="/account">
@@ -47,12 +53,13 @@
             <span>Contracts</span>
         </a>
 
-        <a href="/create-contract" class="nav-link create-btn">
-            <FilePlusCorner size={18} strokeWidth={2.5} />
-            <span>Create Contract</span>
-        </a>
+        <button class="nav-link signout-btn" onclick={handleSignOut}>
+            <LogOut size={18} strokeWidth={2.5} />
+            <span>Sign Out</span>
+        </button>
     </nav>
 </header>
+{/if}
 
 <main>
     {@render children()}
@@ -115,22 +122,18 @@
         transform: scale(0.97);
     }
 
-    .create-btn {
-        background-color: #02461C;
-        color: white;
-        font-weight: 600;
-        margin-left: 0.5rem;
-        box-shadow: 0 2px 4px rgba(2, 70, 28, 0.15);
+    .signout-btn {
+        background: none;
+        border: 1px solid #e5e7eb;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: inherit;
+        margin-left: auto;
     }
 
-    .create-btn:hover {
-        background-color: #023214;
-        color: white;
-        box-shadow: 0 4px 6px rgba(2, 70, 28, 0.25);
-        transform: translateY(-1px);
-    }
-
-    .create-btn:active {
-        transform: scale(0.97) translateY(0);
+    .signout-btn:hover {
+        color: #7B1113;
+        background-color: #fff0f0;
+        border-color: #fecaca;
     }
 </style>

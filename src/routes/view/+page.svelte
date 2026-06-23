@@ -4,7 +4,7 @@
     import { flip } from 'svelte/animate';
     import { goto, invalidateAll } from '$app/navigation';
     import { page } from '$app/stores';
-    import { SquareChevronUp, SquareChevronDown, Search, Trash2, Upload } from 'lucide-svelte';
+    import { SquareChevronUp, SquareChevronDown, Search, Trash2, Upload, FilePlusCorner } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
 
     let { data } = $props();
@@ -280,6 +280,11 @@
                 <Upload size={16} strokeWidth={2.5} />
                 <span>Import CSV</span>
             </button>
+
+            <a href="/create-contract" class="action-btn create-btn">
+                <FilePlusCorner size={16} strokeWidth={2.5} />
+                <span>Create Contract</span>
+            </a>
         </div>
     </div>
 
@@ -666,6 +671,11 @@
         background-color: #035a24; color: white;
     }
     .csv-btn:hover { background-color: #02451C; }
+
+    .create-btn {
+        background-color: #035a24; color: white; text-decoration: none;
+    }
+    .create-btn:hover { background-color: #02451C; }
 
     .bulk-bar {
         display: flex; align-items: center; gap: 12px;
