@@ -144,6 +144,8 @@
         max-width: 1400px;
         margin: 2rem auto;
         padding: 0 1.5rem;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .workflow-header {
@@ -152,11 +154,15 @@
         align-items: center;
         min-height: 3rem;
         margin-bottom: 1.5rem;
+        gap: 1rem;
+        flex-wrap: wrap;
     }
 
     .right-section {
         display: flex;
         align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
     }
 
     .workflow-label {
@@ -201,6 +207,7 @@
         display: flex;
         align-items: center;
         gap: 1.5rem;
+        flex-wrap: wrap;
     }
 
     .page-title {
@@ -209,6 +216,7 @@
         font-weight: 700;
         margin: 0;
         color: #02461C;
+        word-break: break-word;
     }
 
     .title-input {
@@ -222,6 +230,21 @@
         outline: none;
         width: 100%;
         min-width: 450px;
+        box-sizing: border-box;
+    }
+
+    @media (max-width: 768px) {
+        .main-content { padding: 0 1rem; margin: 1rem auto; }
+        .page-title { font-size: 1.5rem; }
+        .title-input { min-width: 0; width: 100%; }
+        .workflow-select { width: 100%; }
+        .workflow-label { display: none; }
+        .left-section, .right-section { width: 100%; }
+    }
+
+    @media (max-width: 480px) {
+        .page-title { font-size: 1.25rem; }
+        .workflow-header { flex-direction: column; align-items: flex-start; }
     }
 
     .action-btn {

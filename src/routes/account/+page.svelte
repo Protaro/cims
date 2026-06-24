@@ -137,6 +137,8 @@
         margin: 2rem auto;
         padding: 0 1.5rem;
         font-family: 'Poppins', sans-serif;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .page-title {
@@ -144,6 +146,7 @@
         font-weight: 700;
         color: #02461C;
         margin: 0 0 1.5rem 0;
+        word-break: break-word;
     }
 
     .card {
@@ -162,6 +165,8 @@
         margin-bottom: 1.5rem;
         padding-bottom: 1rem;
         border-bottom: 1px solid #e5e7eb;
+        gap: 1rem;
+        flex-wrap: wrap;
     }
 
     .section-title {
@@ -182,6 +187,21 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .account-container { padding: 0 1rem; margin: 1rem auto; }
+        .page-title { font-size: 1.75rem; }
+        .form-grid { grid-template-columns: 1fr; }
+        .card { padding: 1.25rem; }
+        .section-title { font-size: 1.25rem; }
+    }
+
+    @media (max-width: 480px) {
+        .page-title { font-size: 1.5rem; }
+        .card-header { flex-direction: column; align-items: flex-start; }
+        .table-form { flex-direction: column; align-items: flex-start; }
+        .select-field { min-width: 0; width: 100%; }
     }
 
     .form-group {

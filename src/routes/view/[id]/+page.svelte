@@ -220,6 +220,8 @@
         padding: 2rem;
         max-width: 900px;
         margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .header {
@@ -229,12 +231,15 @@
         margin-bottom: 2rem;
         border-bottom: 2px solid #eee;
         padding-bottom: 1rem;
+        gap: 1rem;
+        flex-wrap: wrap;
     }
 
     .title-group {
         display: flex;
         align-items: center;
         gap: 1rem;
+        flex-wrap: wrap;
     }
 
     .page-title { 
@@ -242,6 +247,7 @@
         font-weight: 700; 
         color: #02461C; 
         margin: 0; 
+        word-break: break-word;
     }
     
 
@@ -266,6 +272,20 @@
         display: flex;
         align-items: center;
         gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+        .main-content { padding: 1rem; }
+        .page-title { font-size: 1.5rem; }
+        .details-grid { grid-template-columns: 1fr; }
+        .action-buttons { width: 100%; justify-content: flex-end; }
+    }
+
+    @media (max-width: 480px) {
+        .header { flex-direction: column; align-items: flex-start; }
+        .page-title { font-size: 1.25rem; }
+        .info-card { padding: 1rem; }
     }
 
     .info-card {

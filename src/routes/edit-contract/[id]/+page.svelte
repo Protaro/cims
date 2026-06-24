@@ -415,6 +415,8 @@
         max-width: 1400px;
         margin: 0 auto;
         padding: 2rem;
+        width: 100%;
+        box-sizing: border-box;
     }
     
     .workflow-header {
@@ -427,6 +429,7 @@
         display: flex;
         align-items: center;
         gap: 1.25rem;
+        flex-wrap: wrap;
     }
     
     .page-title {
@@ -435,6 +438,7 @@
         font-weight: 700;
         margin: 0;
         color: #02461C;
+        word-break: break-word;
     }
 
     .title-input {
@@ -448,6 +452,23 @@
         outline: none;
         width: 100%;
         max-width: 450px;
+        box-sizing: border-box;
+    }
+
+    .publish-btn {
+        background-color: #0056b3;
+        margin-left: auto;
+    }
+
+    @media (max-width: 768px) {
+        .main-content { padding: 1rem; }
+        .page-title { font-size: 1.5rem; }
+        .collaborators-panel { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 480px) {
+        .page-title { font-size: 1.25rem; }
+        .title-input { font-size: 1.4rem; max-width: 100%; }
     }
     
     /* Buttons */

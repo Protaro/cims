@@ -87,6 +87,7 @@
         position: sticky;
         top: 0;
         z-index: 50;
+        gap: 1rem;
     }
 
     .logo-img {
@@ -100,6 +101,19 @@
         flex-direction: row;
         gap: 0.5rem;
         align-items: center;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+        .header-container { padding: 0.5rem 1rem; }
+        .logo-img { height: 40px; }
+        .nav-links { gap: 0.25rem; }
+        .nav-link { padding: 6px 10px; font-size: 0.85rem; }
+    }
+
+    @media (max-width: 480px) {
+        .header-container { flex-direction: column; gap: 0.5rem; }
+        .nav-links { width: 100%; justify-content: center; }
     }
 
     .nav-link {

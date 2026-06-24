@@ -4,18 +4,11 @@
     import { flip } from 'svelte/animate';
     import { goto, invalidateAll } from '$app/navigation';
     import { page } from '$app/stores';
-    import { SquareChevronUp, SquareChevronDown, Search, Trash2, Upload, FilePlusCorner } from 'lucide-svelte';
+    import { ArrowUpDown, SquareChevronUp, SquareChevronDown, ChevronDown, Trash2, Upload, FilePlusCorner } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
 
     let { data } = $props();
-    let { access, contracts, filters, users, session_id} = $derived(data); 
-
-    const visibleContracts = $derived(
-        contracts?.filter(contract =>
-            contract.editors?.includes(session_id) ||
-            contract.viewers?.includes(session_id)
-        ) ?? []
-    );
+    let { access, contracts, users, session_id} = $derived(data); 
 
     let showConfirmModal = $state(false);
     let isUpdating = $state(false);
@@ -34,9 +27,80 @@
     let selectedIds = $state<Set<string>>(new Set());
     let existingTypes = $state<string[]>([]);
 
+    let showYearDropdown = $state(false);
+    let showTypeDropdown = $state(false);
+    let showStatusDropdown = $state(false);
+
+    let yearValues = $derived(($page.url.searchParams.get('year') || '').split(',').filter(Boolean));
+    let typeValues = $derived(($page.url.searchParams.get('type') || '').split(',').filter(Boolean));
+    let statusValues = $derived(($page.url.searchParams.get('status') || '').split(',').filter(Boolean));
+    let searchValue = $derived(($page.url.searchParams.get('search') || '').toLowerCase());
+
     let currentSort = $derived($page.url.searchParams.get('sort') || 'last_modified-desc');
     let sortKey = $derived(currentSort.split('-')[0]);
     let sortAsc = $derived(currentSort.split('-')[1] === 'asc');
+
+    const visibleContracts = $derived(
+        (contracts ?? [])
+            .filter(contract =>
+                contract.editors?.includes(session_id) ||
+                contract.viewers?.includes(session_id)
+            )
+            .filter(c => {
+                if (yearValues.length > 0) {
+                    const y = new Date(c.created_at).getFullYear().toString();
+                    if (!yearValues.includes(y)) return false;
+                }
+                if (typeValues.length > 0 && !typeValues.includes(c.type)) return false;
+                if (statusValues.length > 0 && !statusValues.includes(c.status)) return false;
+                if (searchValue && !c.title?.toLowerCase().includes(searchValue)) return false;
+                return true;
+            })
+            .sort((a, b) => {
+                let aVal: any, bVal: any;
+                if (sortKey === 'title') {
+                    aVal = a.title?.toLowerCase() ?? '';
+                    bVal = b.title?.toLowerCase() ?? '';
+                } else {
+                    aVal = a[sortKey] ?? '';
+                    bVal = b[sortKey] ?? '';
+                }
+                if (aVal < bVal) return sortAsc ? -1 : 1;
+                if (aVal > bVal) return sortAsc ? 1 : -1;
+                return 0;
+            })
+            ?? []
+    );
+
+    function navigate(url: URL) {
+        goto(url.toString(), { keepFocus: true, noScroll: true, replaceState: true });
+    }
+
+    function toggleFilter(key: string, value: string) {
+        const current = ($page.url.searchParams.get(key) || '').split(',').filter(Boolean);
+        const next = current.includes(value)
+            ? current.filter(v => v !== value)
+            : [...current, value];
+        const newUrl = new URL($page.url);
+        if (next.length === 0) {
+            newUrl.searchParams.delete(key);
+        } else {
+            newUrl.searchParams.set(key, next.join(','));
+        }
+        navigate(newUrl);
+    }
+
+    function toggleDropdown(name: 'year' | 'type' | 'status') {
+        showYearDropdown = name === 'year' ? !showYearDropdown : false;
+        showTypeDropdown = name === 'type' ? !showTypeDropdown : false;
+        showStatusDropdown = name === 'status' ? !showStatusDropdown : false;
+    }
+
+    function closeAllDropdowns() {
+        showYearDropdown = false;
+        showTypeDropdown = false;
+        showStatusDropdown = false;
+    }
 
     let allSelected = $derived(
         visibleContracts.length > 0 && selectedIds.size === visibleContracts.length
@@ -54,23 +118,23 @@
     });
 
     function updateFilter(key: string, value: string) {
-        const newUrl = new URL(window.location.href);
-        if (value === 'All' || value === '') {
+        const newUrl = new URL($page.url);
+        if (value === '') {
             newUrl.searchParams.delete(key);
         } else {
             newUrl.searchParams.set(key, value);
         }
-        goto(newUrl.toString(), { keepFocus: true, noScroll: true });
+        navigate(newUrl);
     }
 
     function updateSort(key: string) {
-        const newUrl = new URL(window.location.href);
+        const newUrl = new URL($page.url);
         let newOrder = 'asc';
         if (sortKey === key) {
             newOrder = sortAsc ? 'desc' : 'asc';
         }
         newUrl.searchParams.set('sort', `${key}-${newOrder}`);
-        goto(newUrl.toString(), { keepFocus: true, noScroll: true });
+        navigate(newUrl);
     }
 
     function toggleSelect(id: string) {
@@ -235,46 +299,77 @@
     }
 </script>
 
+<svelte:window onclick={closeAllDropdowns} />
+
 {#if access !== "Workflow Manager" && access !== "Contract Manager" && access !== "Contract Viewer"}
     <h1 style="text-align:center; margin-top: 4rem;">You do not have access to view this page. <br> Please contact a Workflow Manager or a Contract Manager.</h1>
 {:else}
 <div class="main-content">
     <div class="header">
         <h1 class="page-title">Contract Records List</h1>
-        <div class="controls">
+    </div>
+    <div class="controls">
             
             <div class="search-wrapper">
-                <Search class="search-icon" size={18} color="#6b7280" />
                 <input 
                     type="text" 
                     placeholder="Search contracts" 
                     class="search-input"
-                    value={filters.search}
+                    value={$page.url.searchParams.get('search') || ''}
                     oninput={(e) => updateFilter('search', e.currentTarget.value)}
                 />
             </div>
 
-            <select class="filter-select" value={filters.year} onchange={(e) => updateFilter('year', e.currentTarget.value)}>
-                <option value="All">Year</option>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-            </select>
+            <div class="multi-select-wrap" onclick={(e) => e.stopPropagation()}>
+                <button class="multi-select-trigger" onclick={(e) => { e.stopPropagation(); toggleDropdown('year'); }}>
+                    <span>Year</span>
+                    <ChevronDown size={14} />
+                </button>
+                {#if showYearDropdown}
+                    <div class="multi-select-dropdown" onclick={(e) => e.stopPropagation()}>
+                        {#each ['2026', '2025', '2024'] as y}
+                            <label class="multi-select-option">
+                                <input type="checkbox" checked={yearValues.includes(y)} onchange={() => toggleFilter('year', y)} />
+                                <span>{y}</span>
+                            </label>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
 
-            <select class="filter-select" value={filters.type} onchange={(e) => updateFilter('type', e.currentTarget.value)}>
-                <option value="All">Type</option>
-                {#each existingTypes as type}
-                    <option value={type}>{type}</option>
-                {/each}
-            </select>
+            <div class="multi-select-wrap" onclick={(e) => e.stopPropagation()}>
+                <button class="multi-select-trigger" onclick={(e) => { e.stopPropagation(); toggleDropdown('type'); }}>
+                    <span>Type</span>
+                    <ChevronDown size={14} />
+                </button>
+                {#if showTypeDropdown}
+                    <div class="multi-select-dropdown" onclick={(e) => e.stopPropagation()}>
+                        {#each existingTypes as t}
+                            <label class="multi-select-option">
+                                <input type="checkbox" checked={typeValues.includes(t)} onchange={() => toggleFilter('type', t)} />
+                                <span>{t}</span>
+                            </label>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
 
-            <select class="filter-select" value={filters.status} onchange={(e) => updateFilter('status', e.currentTarget.value)}>
-                <option value="All">Status</option>
-                <option value="Active">Active</option>
-                <option value="On Hold">On Hold</option>
-                <option value="Completed">Completed</option>
-                <option value="Terminated">Terminated</option>
-            </select>
+            <div class="multi-select-wrap" onclick={(e) => e.stopPropagation()}>
+                <button class="multi-select-trigger" onclick={(e) => { e.stopPropagation(); toggleDropdown('status'); }}>
+                    <span>Status</span>
+                    <ChevronDown size={14} />
+                </button>
+                {#if showStatusDropdown}
+                    <div class="multi-select-dropdown" onclick={(e) => e.stopPropagation()}>
+                        {#each ['Active', 'On Hold', 'Completed', 'Terminated'] as s}
+                            <label class="multi-select-option">
+                                <input type="checkbox" checked={statusValues.includes(s)} onchange={() => toggleFilter('status', s)} />
+                                <span>{s}</span>
+                            </label>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
 
             <button class="action-btn csv-btn" onclick={() => showCsvModal = true}>
                 <Upload size={16} strokeWidth={2.5} />
@@ -286,7 +381,41 @@
                 <span>Create Contract</span>
             </a>
         </div>
-    </div>
+
+    {#if yearValues.length > 0 || typeValues.length > 0 || statusValues.length > 0}
+        <div class="chips-container">
+            {#if yearValues.length > 0}
+                <div class="chips-group">
+                    <span class="chips-label">Year:</span>
+                    <div class="chips-list">
+                        {#each yearValues as y}
+                            <span class="chip chip-year" onclick={() => toggleFilter('year', y)}>{y}<span class="chip-remove">&times;</span></span>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+            {#if typeValues.length > 0}
+                <div class="chips-group">
+                    <span class="chips-label">Type:</span>
+                    <div class="chips-list">
+                        {#each typeValues as t}
+                            <span class="chip chip-type" onclick={() => toggleFilter('type', t)}>{t}<span class="chip-remove">&times;</span></span>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+            {#if statusValues.length > 0}
+                <div class="chips-group">
+                    <span class="chips-label">Status:</span>
+                    <div class="chips-list">
+                        {#each statusValues as s}
+                            <span class="chip chip-status" onclick={() => toggleFilter('status', s)}>{s}<span class="chip-remove">&times;</span></span>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+        </div>
+    {/if}
 
     {#if selectedIds.size > 0}
         <div class="bulk-bar">
@@ -325,7 +454,7 @@
                                         <SquareChevronDown size={16} strokeWidth={2.5} />
                                     {/if}
                                 {:else}
-                                    <span style="width: 16px;"></span> 
+                                    <ArrowUpDown size={16} strokeWidth={1.5} opacity={0.5} />
                                 {/if}
                             </div>
                         </th>
@@ -499,14 +628,16 @@
         padding: 2rem;
         display: grid;
         gap: 2rem;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .header {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        flex-wrap: wrap;
+        text-align: center;
+        gap: 0.5rem;
     }
 
     .page-title {
@@ -519,7 +650,9 @@
     .controls {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 0.75rem;
+        flex-wrap: wrap;
     }
 
     .search-wrapper {
@@ -528,14 +661,8 @@
         align-items: center;
     }
 
-    .search-icon {
-        position: absolute;
-        left: 12px;
-        pointer-events: none;
-    }
-
     .search-input {
-        padding: 10px 10px 10px 36px;
+        padding: 10px 10px 10px 40px;
         border: 1px solid #d1d5db;
         border-radius: 8px;
         font-family: 'Poppins', sans-serif;
@@ -543,6 +670,10 @@
         width: 300px;
         outline: none;
         transition: border-color 0.2s;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 12px center;
+        background-size: 18px;
     }
 
     .search-input:focus {
@@ -550,7 +681,18 @@
         box-shadow: 0 0 0 2px rgba(2, 70, 28, 0.1);
     }
 
-    .filter-select {
+    .multi-select-wrap {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .multi-select-trigger {
+        display: flex;
+        align-items: center;
+        gap: 6px;
         padding: 10px 14px;
         border: 1px solid #d1d5db;
         border-radius: 8px;
@@ -560,10 +702,124 @@
         color: #374151;
         cursor: pointer;
         outline: none;
+        white-space: nowrap;
+        transition: border-color 0.2s;
     }
 
-    .filter-select:focus {
+    .multi-select-trigger:hover {
         border-color: #02461C;
+    }
+
+    .multi-select-trigger:focus-visible {
+        border-color: #02461C;
+        box-shadow: 0 0 0 2px rgba(2, 70, 28, 0.1);
+    }
+
+    .multi-select-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 4px;
+        width: max-content;
+        min-width: 100%;
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        z-index: 100;
+        padding: 6px 0;
+        max-height: 240px;
+        overflow-y: auto;
+    }
+
+    .multi-select-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: #374151;
+        transition: background-color 0.15s;
+    }
+
+    .multi-select-option:hover {
+        background-color: #f3f4f6;
+    }
+
+    .multi-select-option input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: #7B1113;
+    }
+
+
+
+    .chips-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 24px;
+        padding: 8px 4px;
+        align-items: center;
+    }
+
+    .chips-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chips-label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #374151;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .chips-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        user-select: none;
+    }
+
+    .chip:hover {
+        opacity: 0.8;
+    }
+
+    .chip-year {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+
+    .chip-type {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .chip-status {
+        background-color: #ede9fe;
+        color: #5b21b6;
+    }
+
+    .chip-remove {
+        font-size: 1rem;
+        line-height: 1;
+        margin-left: 2px;
     }
 
     .table-container {
@@ -585,13 +841,21 @@
     }
 
     th {
-        text-align: left;
+        text-align: center;
         padding: 14px 20px;
         font-size: 0.85rem;
         font-weight: 600;
         color: #fbf9f9;
         letter-spacing: 0.05em;
         transition: background-color 0.2s;
+        outline: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    th:focus, th:focus-visible, th:active {
+        outline: none;
+        box-shadow: none;
     }
 
     th:hover {
@@ -601,6 +865,7 @@
     .th-content {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
     }
 
@@ -801,5 +1066,25 @@
     .btn-cancel:disabled {
         opacity: 0.6;
         cursor: not-allowed;
+    }
+
+    @media (max-width: 768px) {
+        .main-content { padding: 1rem; }
+        .page-title { font-size: 1.5rem; }
+        .controls { flex-direction: column; align-items: stretch; }
+        .search-input { width: 100%; }
+        .multi-select-wrap { width: 100%; }
+        .multi-select-trigger { width: 100%; justify-content: space-between; }
+        .multi-select-dropdown { width: 100%; min-width: 0; }
+        .table-container { overflow-x: auto; }
+        th, td { padding: 10px 12px; font-size: 0.85rem; }
+        .header { gap: 0.75rem; }
+    }
+
+    @media (max-width: 480px) {
+        .page-title { font-size: 1.25rem; }
+        th, td { padding: 8px 8px; font-size: 0.8rem; }
+        .th-checkbox, .td-checkbox { width: 32px; }
+        .action-btn { font-size: 0.8rem; padding: 6px 10px; }
     }
 </style>
