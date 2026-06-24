@@ -28,7 +28,6 @@
             bind:data={contractData.prework}
             on:next={() => changePhase("Review and Approval")}
         />
-
     {:else if phase === "Review and Approval"}
 
         <ReviewApproval
@@ -36,7 +35,6 @@
             on:back={() => changePhase("Prework")}
             on:next={() => changePhase("Signing and Activation")}
         />
-
     {:else if phase === "Signing and Activation"}
 
         <SigningActivation
@@ -44,7 +42,6 @@
             on:back={() => changePhase("Review and Approval")}
             on:next={() => changePhase("Postwork")}
         />
-
     {:else if phase === "Postwork"}
 
         <Postwork

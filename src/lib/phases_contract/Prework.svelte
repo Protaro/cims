@@ -114,8 +114,12 @@
             {#each checklist as item, i}
                 <div class="checklist-item-wrapper">
                     <div class="checklist-row">
-                        <input class="editable-text main-input" type="text" bind:value={item.text} placeholder="Requirement Name" />
-                        <button class="delete-btn" onclick={() => removeField(i)}>×</button>
+                        {#if item.isCustom}
+                            <input class="editable-text main-input" type="text" bind:value={item.text} placeholder="Requirement Name" />
+                            <button class="delete-btn" onclick={() => removeField(i)}>×</button>
+                        {:else}
+                            <span class="field-text">{item.text}</span>
+                        {/if}
                     </div>
                     <div class="details-row">
                         <input class="editable-text details-input" type="text" bind:value={item.details} placeholder="Requirement Details..." />
@@ -222,9 +226,15 @@
         flex: 1; 
         border: 1px solid #e5e7eb;
          border-radius: 6px;
-          padding: 8px 10px; 
-          font-size: 0.95rem; 
-        }
+           padding: 8px 10px; 
+           font-size: 0.95rem; 
+         }
+    .field-text { 
+        flex: 1; 
+        padding: 8px 10px; 
+        font-size: 0.95rem; 
+        color: #374151; 
+    }
     .details-input {
          background-color: #fafafa; 
          font-size: 0.9rem; 

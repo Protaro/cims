@@ -4,7 +4,7 @@
     import { flip } from 'svelte/animate';
     import { goto, invalidateAll } from '$app/navigation';
     import { page } from '$app/stores';
-    import { ArrowUpDown, SquareChevronUp, SquareChevronDown, ChevronDown, Trash2, Upload, FilePlusCorner } from 'lucide-svelte';
+    import { ChevronDown, Trash2, Upload, FilePlusCorner } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
 
     let { data } = $props();
@@ -31,6 +31,10 @@
     let showTypeDropdown = $state(false);
     let showStatusDropdown = $state(false);
 
+    let yearShowNone = $state(false);
+    let typeShowNone = $state(false);
+    let statusShowNone = $state(false);
+
     let yearValues = $derived(($page.url.searchParams.get('year') || '').split(',').filter(Boolean));
     let typeValues = $derived(($page.url.searchParams.get('type') || '').split(',').filter(Boolean));
     let statusValues = $derived(($page.url.searchParams.get('status') || '').split(',').filter(Boolean));
@@ -42,17 +46,23 @@
 
     const visibleContracts = $derived(
         (contracts ?? [])
-            .filter(contract =>
-                contract.editors?.includes(session_id) ||
-                contract.viewers?.includes(session_id)
-            )
             .filter(c => {
                 if (yearValues.length > 0) {
                     const y = new Date(c.created_at).getFullYear().toString();
                     if (!yearValues.includes(y)) return false;
+                } else if (yearShowNone) {
+                    return false;
                 }
-                if (typeValues.length > 0 && !typeValues.includes(c.type)) return false;
-                if (statusValues.length > 0 && !statusValues.includes(c.status)) return false;
+                if (typeValues.length > 0) {
+                    if (!typeValues.includes(c.type)) return false;
+                } else if (typeShowNone) {
+                    return false;
+                }
+                if (statusValues.length > 0) {
+                    if (!statusValues.includes(c.status)) return false;
+                } else if (statusShowNone) {
+                    return false;
+                }
                 if (searchValue && !c.title?.toLowerCase().includes(searchValue)) return false;
                 return true;
             })
@@ -84,10 +94,49 @@
         const newUrl = new URL($page.url);
         if (next.length === 0) {
             newUrl.searchParams.delete(key);
+            if (key === 'year') yearShowNone = true;
+            if (key === 'type') typeShowNone = true;
+            if (key === 'status') statusShowNone = true;
         } else {
             newUrl.searchParams.set(key, next.join(','));
+            if (key === 'year') yearShowNone = false;
+            if (key === 'type') typeShowNone = false;
+            if (key === 'status') statusShowNone = false;
         }
         navigate(newUrl);
+    }
+
+    function toggleSelectAllFilter(key: string, allValues: string[]) {
+        const current = ($page.url.searchParams.get(key) || '').split(',').filter(Boolean);
+        let showNone = false;
+        if (key === 'year') showNone = yearShowNone;
+        if (key === 'type') showNone = typeShowNone;
+        if (key === 'status') showNone = statusShowNone;
+        const allSelected = current.length === 0 && !showNone || allValues.every(v => current.includes(v));
+        const newUrl = new URL($page.url);
+        if (allSelected) {
+            newUrl.searchParams.delete(key);
+            if (key === 'year') yearShowNone = true;
+            if (key === 'type') typeShowNone = true;
+            if (key === 'status') statusShowNone = true;
+        } else {
+            newUrl.searchParams.set(key, allValues.join(','));
+            if (key === 'year') yearShowNone = false;
+            if (key === 'type') typeShowNone = false;
+            if (key === 'status') statusShowNone = false;
+        }
+        navigate(newUrl);
+    }
+
+    function allFilterSelected(key: string, allValues: string[]) {
+        const current = ($page.url.searchParams.get(key) || '').split(',').filter(Boolean);
+        if (current.length === 0) {
+            if (key === 'year' && yearShowNone) return false;
+            if (key === 'type' && typeShowNone) return false;
+            if (key === 'status' && statusShowNone) return false;
+            return true;
+        }
+        return allValues.every(v => current.includes(v));
     }
 
     function toggleDropdown(name: 'year' | 'type' | 'status') {
@@ -327,6 +376,11 @@
                 </button>
                 {#if showYearDropdown}
                     <div class="multi-select-dropdown" onclick={(e) => e.stopPropagation()}>
+                        <label class="multi-select-option select-all-option">
+                            <input type="checkbox" checked={allFilterSelected('year', ['2026', '2025', '2024'])} onchange={() => toggleSelectAllFilter('year', ['2026', '2025', '2024'])} />
+                            <span>{allFilterSelected('year', ['2026', '2025', '2024']) ? 'Deselect All' : 'Select All'}</span>
+                        </label>
+                        <div class="select-all-divider"></div>
                         {#each ['2026', '2025', '2024'] as y}
                             <label class="multi-select-option">
                                 <input type="checkbox" checked={yearValues.includes(y)} onchange={() => toggleFilter('year', y)} />
@@ -344,6 +398,11 @@
                 </button>
                 {#if showTypeDropdown}
                     <div class="multi-select-dropdown" onclick={(e) => e.stopPropagation()}>
+                        <label class="multi-select-option select-all-option">
+                            <input type="checkbox" checked={allFilterSelected('type', existingTypes)} onchange={() => toggleSelectAllFilter('type', existingTypes)} />
+                            <span>{allFilterSelected('type', existingTypes) ? 'Deselect All' : 'Select All'}</span>
+                        </label>
+                        <div class="select-all-divider"></div>
                         {#each existingTypes as t}
                             <label class="multi-select-option">
                                 <input type="checkbox" checked={typeValues.includes(t)} onchange={() => toggleFilter('type', t)} />
@@ -361,6 +420,11 @@
                 </button>
                 {#if showStatusDropdown}
                     <div class="multi-select-dropdown" onclick={(e) => e.stopPropagation()}>
+                        <label class="multi-select-option select-all-option">
+                            <input type="checkbox" checked={allFilterSelected('status', ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'])} onchange={() => toggleSelectAllFilter('status', ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'])} />
+                            <span>{allFilterSelected('status', ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated']) ? 'Deselect All' : 'Select All'}</span>
+                        </label>
+                        <div class="select-all-divider"></div>
                         {#each ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'] as s}
                             <label class="multi-select-option">
                                 <input type="checkbox" checked={statusValues.includes(s)} onchange={() => toggleFilter('status', s)} />
@@ -382,37 +446,37 @@
             </a>
         </div>
 
-    {#if yearValues.length > 0 || typeValues.length > 0 || statusValues.length > 0}
+    {#if (yearValues.length > 0 || (!yearShowNone && !$page.url.searchParams.has('year'))) || (typeValues.length > 0 || (!typeShowNone && !$page.url.searchParams.has('type'))) || (statusValues.length > 0 || (!statusShowNone && !$page.url.searchParams.has('status')))}
         <div class="chips-container">
-            {#if yearValues.length > 0}
-                <div class="chips-group">
-                    <span class="chips-label">Year:</span>
-                    <div class="chips-list">
-                        {#each yearValues as y}
-                            <span class="chip chip-year" onclick={() => toggleFilter('year', y)}>{y}<span class="chip-remove">&times;</span></span>
-                        {/each}
-                    </div>
+            {#if yearValues.length > 0 || (!yearShowNone && !$page.url.searchParams.has('year'))}
+            <div class="chips-group">
+                <span class="chips-label">Year:</span>
+                <div class="chips-list">
+                    {#each yearValues.length > 0 ? yearValues : ['2026', '2025', '2024'] as y}
+                        <span class="chip chip-year" onclick={() => toggleFilter('year', y)}>{y}<span class="chip-remove">&times;</span></span>
+                    {/each}
                 </div>
+            </div>
             {/if}
-            {#if typeValues.length > 0}
-                <div class="chips-group">
-                    <span class="chips-label">Type:</span>
-                    <div class="chips-list">
-                        {#each typeValues as t}
-                            <span class="chip chip-type" onclick={() => toggleFilter('type', t)}>{t}<span class="chip-remove">&times;</span></span>
-                        {/each}
-                    </div>
+            {#if typeValues.length > 0 || (!typeShowNone && !$page.url.searchParams.has('type'))}
+            <div class="chips-group">
+                <span class="chips-label">Type:</span>
+                <div class="chips-list">
+                    {#each typeValues.length > 0 ? typeValues : existingTypes as t}
+                        <span class="chip chip-type" onclick={() => toggleFilter('type', t)}>{t}<span class="chip-remove">&times;</span></span>
+                    {/each}
                 </div>
+            </div>
             {/if}
-            {#if statusValues.length > 0}
-                <div class="chips-group">
-                    <span class="chips-label">Status:</span>
-                    <div class="chips-list">
-                        {#each statusValues as s}
-                            <span class="chip chip-status" onclick={() => toggleFilter('status', s)}>{s}<span class="chip-remove">&times;</span></span>
-                        {/each}
-                    </div>
+            {#if statusValues.length > 0 || (!statusShowNone && !$page.url.searchParams.has('status'))}
+            <div class="chips-group">
+                <span class="chips-label">Status:</span>
+                <div class="chips-list">
+                    {#each statusValues.length > 0 ? statusValues : ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'] as s}
+                        <span class="chip chip-status" onclick={() => toggleFilter('status', s)}>{s}<span class="chip-remove">&times;</span></span>
+                    {/each}
                 </div>
+            </div>
             {/if}
         </div>
     {/if}
@@ -441,31 +505,25 @@
                         <input type="checkbox" checked={allSelected} onchange={toggleSelectAll} />
                     </th>
                     {#each ['title', 'created_at', 'last_modified', 'type', 'status'] as column}
-                        <th onclick={() => updateSort(column)} style="cursor: pointer;">
+                        <th onclick={() => updateSort(column)} class="sortable-th">
                             <div class="th-content">
                                 {column === 'created_at' ? 'CREATED ON' : 
                                  column === 'last_modified' ? 'LAST MODIFIED ON' : 
                                  column.toUpperCase()}
-                                
-                                {#if sortKey === column}
-                                    {#if sortAsc}
-                                        <SquareChevronUp size={16} strokeWidth={2.5} />
-                                    {:else}
-                                        <SquareChevronDown size={16} strokeWidth={2.5} />
+                                <span class="sort-icon">
+                                    {#if sortKey === column}
+                                        {#if sortAsc}&#9650;{:else}&#9660;{/if}
                                     {/if}
-                                {:else}
-                                    <ArrowUpDown size={16} strokeWidth={1.5} opacity={0.5} />
-                                {/if}
+                                </span>
                             </div>
                         </th>
                     {/each}
-                    <th class="th-action"></th>
                 </tr>
             </thead>
             <tbody>
                 {#if visibleContracts.length === 0}
                     <tr>
-                        <td colspan="7" style="text-align: center; color: #6b7280; padding: 2rem;">
+                        <td colspan="6" style="text-align: center; color: #6b7280; padding: 2rem;">
                             No contracts found matching your filters.
                         </td>
                     </tr>
@@ -479,7 +537,7 @@
                                     onchange={() => toggleSelect(contract.id)} 
                                 />
                             </td>
-                            <td>
+                            <td class="td-title">
                                 <a href="/view/{contract.id}" class="contract-link">
                                     {contract.title}
                                 </a>
@@ -506,11 +564,6 @@
                                     <option value="Completed">Completed</option>
                                     <option value="Terminated">Terminated</option>
                                 </select>
-                            </td>
-                            <td class="td-action">
-                                <button class="row-delete-btn" onclick={() => confirmDelete([contract])} title="Delete contract">
-                                    <Trash2 size={15} strokeWidth={2.5} />
-                                </button>
                             </td>
                         </tr>
                     {/each}
@@ -701,7 +754,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 6px;
         padding: 10px 14px;
         border: 1px solid #d1d5db;
         border-radius: 8px;
@@ -879,6 +932,28 @@
         gap: 6px;
     }
 
+    .sort-icon {
+        opacity: 0;
+        transition: opacity 0.15s;
+        font-size: 0.7rem;
+    }
+
+    .sortable-th:hover .sort-icon {
+        opacity: 1;
+    }
+
+    .select-all-option {
+        font-weight: 700;
+        color: #7B1113;
+        border-bottom: none;
+    }
+
+    .select-all-divider {
+        height: 1px;
+        background-color: #e5e7eb;
+        margin: 4px 0;
+    }
+
     tbody tr {
         border-bottom: 1px solid #e5e7eb;
         transition: background-color 0.15s;
@@ -899,27 +974,13 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        text-align: center;
     }
 
     .th-checkbox, .td-checkbox { width: 48px; text-align: center; }
+    .td-title { text-align: left; }
     .th-checkbox input, .td-checkbox input { width: 18px; height: 18px; cursor: pointer; accent-color: #7B1113; }
-    .th-action, .td-action { width: 48px; text-align: center; }
-    .row-delete-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #9ca3af;
-        padding: 4px;
-        border-radius: 6px;
-        transition: all 0.15s;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .row-delete-btn:hover {
-        color: #dc2626;
-        background-color: #fef2f2;
-    }
+
 
     tr.selected { background-color: #fef2f2; }
     tr.selected:hover { background-color: #fde8e8; }
@@ -1102,7 +1163,7 @@
         .controls { flex-direction: column; align-items: stretch; }
         .search-input { width: 100%; }
         .multi-select-wrap { width: 100%; }
-        .multi-select-trigger { width: 100%; justify-content: space-between; }
+        .multi-select-trigger { width: 100%; }
         .multi-select-dropdown { width: 100%; min-width: 0; }
         .table-container { overflow-x: auto; }
         th, td { padding: 10px 12px; font-size: 0.85rem; }

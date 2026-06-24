@@ -141,13 +141,17 @@
         {#each stages as stage, si}
             <div class="stage-box">
                 <div class="checklist-row">
-                    <input
-                        class="editable-text stage-title-input"
-                        type="text"
-                        bind:value={stage.name}
-                        placeholder="Stage Name"
-                    />
-                    <button class="delete-btn" onclick={() => removeStage(si)}>×</button>
+                    {#if stage.isCustom}
+                        <input
+                            class="editable-text stage-title-input"
+                            type="text"
+                            bind:value={stage.name}
+                            placeholder="Stage Name"
+                        />
+                        <button class="delete-btn" onclick={() => removeStage(si)}>×</button>
+                    {:else}
+                        <span class="field-text stage-title-label">{stage.name}</span>
+                    {/if}
                 </div>
 
                 <div class="nested-items">
@@ -158,13 +162,17 @@
                                 <span class="checkmark"></span>
                             </label>
 
-                            <input
-                                class="editable-text"
-                                type="text"
-                                bind:value={item.text}
-                                placeholder="Approver Name"
-                            />
-                            <button class="delete-btn" onclick={() => removeItem(si, ii)}>×</button>
+                            {#if item.isCustom}
+                                <input
+                                    class="editable-text"
+                                    type="text"
+                                    bind:value={item.text}
+                                    placeholder="Approver Name"
+                                />
+                                <button class="delete-btn" onclick={() => removeItem(si, ii)}>×</button>
+                            {:else}
+                                <span class="field-text">{item.text}</span>
+                            {/if}
                         </div>
                     {/each}
 
@@ -350,6 +358,17 @@
     }
 
     .stage-title-input {
+        font-weight: bold;
+    }
+
+    .field-text {
+        flex: 1;
+        padding: 6px 10px;
+        font-size: 0.95rem;
+        color: #374151;
+    }
+
+    .stage-title-label {
         font-weight: bold;
     }
 

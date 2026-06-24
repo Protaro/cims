@@ -56,7 +56,7 @@
     }
 
     function addMilestone() {
-        milestones = [...milestones, { text: `New Milestone`, done: false }];
+        milestones = [...milestones, { text: `New Milestone`, done: false, isCustom: true }];
     }
 
     function removeMilestone(index: number) {
@@ -81,15 +81,19 @@
                         <input type="checkbox" bind:checked={m.done} />
                         <span class="checkmark"></span>
                     </label>
-                    <input 
-                        type="text" 
-                        class="editable-text" 
-                        bind:value={m.text} 
-                        placeholder="Enter milestone" 
-                    />
-                    <button class="delete-btn" onclick={() => removeMilestone(i)}>
-                        ×
-                    </button>
+                    {#if m.isCustom}
+                        <input
+                            type="text"
+                            class="editable-text"
+                            bind:value={m.text}
+                            placeholder="Enter milestone"
+                        />
+                        <button class="delete-btn" onclick={() => removeMilestone(i)}>
+                            ×
+                        </button>
+                    {:else}
+                        <span class="field-text">{m.text}</span>
+                    {/if}
                 </div>
             {/each}
         </div>
@@ -283,6 +287,13 @@
         border-radius: 6px; 
         padding: 6px 10px; 
         font-size: 0.95rem; 
+    }
+
+    .field-text {
+        flex: 1;
+        padding: 6px 10px;
+        font-size: 0.95rem;
+        color: #374151;
     }
     
     .delete-btn { 

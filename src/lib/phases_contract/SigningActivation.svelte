@@ -119,16 +119,19 @@
                     <span class="checkmark"></span>
                 </label>
 
-                <input
-                    class="editable-text"
-                    type="text"
-                    bind:value={party.name}
-                    placeholder="Party Name"
-                />
-
-                <button class="delete-btn" onclick={() => removeParty(i)}>
-                    ×
-                </button>
+                {#if party.isCustom}
+                    <input
+                        class="editable-text"
+                        type="text"
+                        bind:value={party.name}
+                        placeholder="Party Name"
+                    />
+                    <button class="delete-btn" onclick={() => removeParty(i)}>
+                        ×
+                    </button>
+                {:else}
+                    <span class="field-text">{party.name}</span>
+                {/if}
             </div>
         {/each}
 
@@ -279,6 +282,13 @@
         border-radius: 6px;
         padding: 6px 10px;
         font-size: 0.95rem;
+    }
+
+    .field-text {
+        flex: 1;
+        padding: 6px 10px;
+        font-size: 0.95rem;
+        color: #374151;
     }
 
     .delete-btn {

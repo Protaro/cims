@@ -1,10 +1,11 @@
 <script lang="ts">
     import CreateContractMainPanel from "./CreateContractMainPanel.svelte";
-    import { Pencil, Check, Save, Loader2, FileText } from 'lucide-svelte';
+    import { Pencil, Check, Save, Loader2, FileText, ChevronDown } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
     import { uploadFiles, saveFileRecords } from '$lib/fileService';
 
     import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
     import { get } from 'svelte/store';
     import { getWorkflows, getWorkflowWithDetails, contractStore } from '$lib/contractdetail';
    
@@ -162,18 +163,16 @@
         if (event.key === 'Enter') saveName();
     }
 
-    async function saveContractToDB() {
-        if (!contractData.postwork.contractType || contractData.postwork.contractType.trim() === "") {
-            modalTitle = "Action Required";
-            modalMessage = "Please enter a name for the custom contract type before saving.";
-            showModal = true;
-            return;
-        }
+    async function navigateToWorkflow() {
+        await saveContractToDB(true);
+        goto('/workflow');
+    }
 
+    async function saveContractToDB(silent = false) {
         isSaving = true;
         const finalTitle = ContractName;
         const finalContractType = contractData.postwork.contractType || "Scholarship";
-        const finalContractStatus = contractData.postwork.contractStatus || "Active";
+        const finalContractStatus = contractData.postwork.contractStatus || "Draft";
         
         const timestamp = new Date().toISOString(); 
 
@@ -222,19 +221,21 @@
                 if (fetchError) throw fetchError;
 
                 if (existingRow) {
-                    return supabase.from(tableName).update(payload).eq('id', existingRow.id);
+                    const { error: updateError } = await supabase.from(tableName).update(payload).eq('id', existingRow.id);
+                    if (updateError) throw updateError;
                 } else {
-                    return supabase.from(tableName).insert({ contract_id: contractId, ...payload });
+                    const { error: insertError } = await supabase.from(tableName).insert({ contract_id: contractId, ...payload });
+                    if (insertError) throw insertError;
                 }
             };
 
             const currentStore = get(contractStore);
 
-            const cleanPrework = currentStore.prework.checklist.map((item: any) => {
+            const cleanPrework = (currentStore.prework?.checklist || []).map((item: any) => {
                 const { isCustom, ...rest } = item; return rest;
             });
 
-            const cleanApproval = currentStore.approval.stages.map((stage: any) => {
+            const cleanApproval = (currentStore.approval?.stages || []).map((stage: any) => {
                 const { isCustom, ...restStage } = stage;
                 return {
                     ...restStage,
@@ -244,28 +245,25 @@
                 };
             });
 
-            const cleanActivation = currentStore.activation.parties.map((party: any) => {
+            const cleanActivation = (currentStore.activation?.parties || []).map((party: any) => {
                 const { isCustom, ...rest } = party; return rest;
             });
 
-            const cleanMilestones = (contractData.postwork.milestones || []).map((m: any) => {
+            const cleanMilestones = (contractData.postwork?.milestones || []).map((m: any) => {
                 const { isCustom, ...rest } = m; return rest;
             });
 
-            const results = await Promise.all([
+            await Promise.all([
                 savePhase('contract_preworks', { checklist: cleanPrework }),
                 savePhase('contract_approvals', { checklist: { stages: cleanApproval } }),
                 savePhase('contract_activations', { parties: cleanActivation }),
                 savePhase('contract_postworks', { 
                     checklist: {
                         milestones: cleanMilestones,
-                        termination: { type: contractData.postwork.terminationType, reason: contractData.postwork.reason }
+                        termination: { type: contractData.postwork?.terminationType || "", reason: contractData.postwork?.reason || "" }
                     } 
                 })
             ]);
-
-            const phasesError = results.find(res => res?.error)?.error;
-            if (phasesError) throw phasesError;
 
             // Upload files for each phase
             const stageMappings: { stageType: string; files: File[]; stageId?: string }[] = [
@@ -281,65 +279,84 @@
                 }
             }
 
-            modalTitle = "Success";
-            modalMessage = "Contract saved successfully!";
-            showModal = true;
+            draftSaved = true;
+            draftContractId = contractId;
+
+            if (!silent) {
+                modalTitle = "Success";
+                modalMessage = "Contract saved successfully!";
+                showModal = true;
+            }
 
         } catch (error: any) {
             console.error("Detailed Saving Error:", error);
-            modalTitle = "Error";
-            modalMessage = `Save failed: ${error.message || "Internal Database Error"}`;
-            showModal = true;
+            if (!silent) {
+                modalTitle = "Error";
+                modalMessage = `Save failed: ${error.message || "Internal Database Error"}`;
+                showModal = true;
+            }
         } finally {
             isSaving = false;
         }
     }
 </script>
 
-{#if access !== "Workflow Manager" && access !== "Contract Manager"}
+    {#if access !== "Workflow Manager" && access !== "Contract Manager"}
     <h1 style="text-align:center; margin-top: 4rem;">You do not have access to view this page. <br> Please contact a Workflow Manager or a Contract Manager.</h1>
 {:else}
 <div class="main-content">
     
+    <button class="back-link-btn" onclick={() => goto('/view')}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        <span>Return to Contract List</span>
+    </button>
+
     <div class="top-action-bar">
-        
         <div class="workflow-header">
-            {#if isEditing}
-                <div class="edit-group">
-                    <input 
-                        type="text" 
-                        bind:value={ContractName} 
-                        onkeydown={handleKeydown}
-                        class="title-input"
-                    />
-                    <button class="action-btn save-btn" onclick={saveName}>
-                        <Check size={16} strokeWidth={3} />
-                    </button>
-                </div>
-            {:else}
-                <div class="view-group">
-                    <h1 class="page-title">{ContractName}</h1>
-                    <button class="action-btn rename-btn" onclick={startEditing}>
-                        <Pencil size={16} strokeWidth={2.5} />
-                    </button>
-                </div>
-            {/if}
-        </div>
+                {#if contractData.workflow_id}
+                    {#if isEditing}
+                        <div class="edit-group">
+                            <input 
+                                type="text" 
+                                bind:value={ContractName} 
+                                onkeydown={handleKeydown}
+                                class="title-input"
+                            />
+                            <button class="action-btn save-btn" onclick={saveName}>
+                                <Check size={16} strokeWidth={3} />
+                            </button>
+                        </div>
+                    {:else}
+                        <div class="view-group">
+                            <h1 class="page-title">{ContractName}</h1>
+                            <button class="action-btn rename-btn" onclick={startEditing}>
+                                <Pencil size={16} strokeWidth={2.5} />
+                            </button>
+                        </div>
+                    {/if}
+                {:else}
+                    <h1 class="page-title">Create Contract</h1>
+                {/if}
+            </div>
 
         <div class="header-actions">
             <div class="template-selector">
-                <select 
-                    id="workflow" 
-                    bind:value={selectedWorkflowId} 
-                    onchange={handleWorkflowSelect}
-                    disabled={currentPhase !== 'Prework'} 
-                    title={currentPhase !== 'Prework' ? "Template selection is locked after Prework stage" : ""}
-                >
-                    <option value="" disabled selected>Select a template...</option>
-                    {#each workflows as wf}
-                        <option value={wf.id}>{wf.name}</option>
-                    {/each}
-                </select>
+                <div class="select-wrapper">
+                    <select 
+                        id="workflow" 
+                        bind:value={selectedWorkflowId} 
+                        onchange={handleWorkflowSelect}
+                        disabled={currentPhase !== 'Prework'} 
+                        title={currentPhase !== 'Prework' ? "Template selection is locked after Prework stage" : ""}
+                        class="custom-select"
+                    >
+                        <option value="" disabled selected>Select a template...</option>
+                        {#each workflows as wf}
+                            <option value={wf.id}>{wf.name}</option>
+                        {/each}
+                    </select>
+                    <ChevronDown size={16} class="select-chevron" />
+                </div>
                 
                 {#if isLoadingTemplate || isSavingDraft}
                     <Loader2 size={18} class="spin inline-icon" style="color: #6b7280;"/>
@@ -348,15 +365,24 @@
                 {/if}
             </div>
 
-            <button class="action-btn publish-btn" onclick={saveContractToDB} disabled={isSaving || !contractData.workflow_id}>
-                {#if isSaving}
-                    <Loader2 size={16} class="spin" />
-                    <span>Saving...</span>
-                {:else}
-                    <Save size={16} strokeWidth={2.5} />
-                    <span>Save Contract</span>
-                {/if}
-            </button>
+            {#if contractData.workflow_id}
+                <button class="action-btn publish-btn" onclick={saveContractToDB} disabled={isSaving}>
+                    {#if isSaving}
+                        <Loader2 size={16} class="spin" />
+                        <span>Saving...</span>
+                    {:else}
+                        <Save size={16} strokeWidth={2.5} />
+                        <span>Save Contract</span>
+                    {/if}
+                </button>
+                <button class="action-btn cancel-contract-btn" onclick={() => goto('/view')} disabled={isSaving}>
+                    <span>Cancel Contract</span>
+                </button>
+                <button class="action-btn workflow-edit-btn" onclick={navigateToWorkflow} disabled={isSaving}>
+                    <Pencil size={16} strokeWidth={2.5} />
+                    <span>Edit Workflow</span>
+                </button>
+            {/if}
         </div>
     </div>
 
@@ -510,11 +536,46 @@
     }
 
     .publish-btn { 
-        background-color: #0056b3; 
+        background-color: #1a73e8; 
     }
 
     .publish-btn:hover { 
-        background-color: #004494; 
+        background-color: #1557b0; 
+    }
+
+    .workflow-edit-btn {
+        background-color: #e8a317;
+    }
+
+    .workflow-edit-btn:hover {
+        background-color: #c48b12;
+    }
+
+    .cancel-contract-btn {
+        background-color: #d93025;
+    }
+
+    .cancel-contract-btn:hover {
+        background-color: #b3261e;
+    }
+
+    .back-link-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: none;
+        border: none;
+        padding: 0 0 0.75rem 0;
+        cursor: pointer;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #6b7280;
+        transition: color 0.2s;
+    }
+
+    .back-link-btn:hover {
+        color: #02461C;
     }
 
     /* Template Selector */
@@ -544,6 +605,28 @@
         background-color: #f3f4f6;
         color: #9ca3af;
         cursor: not-allowed;
+    }
+
+    .select-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .custom-select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        padding-right: 36px;
+        width: 100%;
+    }
+
+    :global(.select-chevron) {
+        position: absolute;
+        right: 12px;
+        pointer-events: none;
+        color: #6b7280;
+        flex-shrink: 0;
     }
     
     .empty-state { 
