@@ -4,11 +4,13 @@
     interface Props {
         contractData: any;
         currentPhase: string;
+        onComplete?: () => void;
     }
 
     let { 
         contractData = $bindable(), 
         currentPhase = $bindable("Prework"),
+        onComplete,
     }: Props = $props();
     
     let phases = [
@@ -35,6 +37,7 @@
             phase={currentPhase}
             onPhaseChange={(p: string) => currentPhase = p}
             bind:contractData={contractData}
+            {onComplete}
         />
     </div>
 </div>

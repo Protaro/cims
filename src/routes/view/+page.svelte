@@ -383,7 +383,7 @@
                         <div class="select-all-divider"></div>
                         {#each ['2026', '2025', '2024'] as y}
                             <label class="multi-select-option">
-                                <input type="checkbox" checked={yearValues.includes(y)} onchange={() => toggleFilter('year', y)} />
+                                <input type="checkbox" checked={yearValues.includes(y) || (!yearShowNone && !$page.url.searchParams.has('year'))} onchange={() => toggleFilter('year', y)} />
                                 <span>{y}</span>
                             </label>
                         {/each}
@@ -405,7 +405,7 @@
                         <div class="select-all-divider"></div>
                         {#each existingTypes as t}
                             <label class="multi-select-option">
-                                <input type="checkbox" checked={typeValues.includes(t)} onchange={() => toggleFilter('type', t)} />
+                                <input type="checkbox" checked={typeValues.includes(t) || (!typeShowNone && !$page.url.searchParams.has('type'))} onchange={() => toggleFilter('type', t)} />
                                 <span>{t}</span>
                             </label>
                         {/each}
@@ -427,7 +427,7 @@
                         <div class="select-all-divider"></div>
                         {#each ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'] as s}
                             <label class="multi-select-option">
-                                <input type="checkbox" checked={statusValues.includes(s)} onchange={() => toggleFilter('status', s)} />
+                                <input type="checkbox" checked={statusValues.includes(s) || (!statusShowNone && !$page.url.searchParams.has('status'))} onchange={() => toggleFilter('status', s)} />
                                 <span>{s}</span>
                             </label>
                         {/each}

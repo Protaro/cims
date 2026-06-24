@@ -224,6 +224,8 @@
     }
     .editable-text { 
         flex: 1; 
+        width: 100%; 
+        box-sizing: border-box; 
         border: 1px solid #e5e7eb;
          border-radius: 6px;
            padding: 8px 10px; 
@@ -231,6 +233,8 @@
          }
     .field-text { 
         flex: 1; 
+        width: 100%; 
+        box-sizing: border-box; 
         padding: 8px 10px; 
         font-size: 0.95rem; 
         color: #374151; 

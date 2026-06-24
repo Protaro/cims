@@ -3,8 +3,8 @@
     import { supabase } from "$lib/supabaseInit"; 
     
     const dispatch = createEventDispatcher();
-    interface Props { data: any; }
-    let { data = $bindable() }: Props = $props();
+    interface Props { data: any; onComplete?: () => void; }
+    let { data = $bindable(), onComplete }: Props = $props();
 
     type Milestone = { text: string; done: boolean };
 
@@ -23,7 +23,7 @@
     let isCustomType = $state(false);
     
     let contractStatus = $state(data.contractStatus || "Draft");
-    const existingStatuses = ["Draft", "Active", "On Hold", "Completed", "Terminated"];
+    const existingStatuses = ["Active", "On Hold", "Completed", "Terminated"];
 
     let showError = $state(false);
     let errorMessage = $state("");
@@ -66,6 +66,26 @@
     function toggleCustomType() {
         isCustomType = !isCustomType;
         if (!isCustomType) customContractType = ""; 
+    }
+
+    function handleComplete() {
+        const finalType = isCustomType ? customContractType : contractType;
+        if (!finalType) {
+            showError = true;
+            errorMessage = "Please select or enter a Contract Type.";
+            return;
+        }
+        if (!contractStatus) {
+            showError = true;
+            errorMessage = "Please select a Contract Status.";
+            return;
+        }
+        if (milestones.length === 0 || milestones.every(m => !m.text.trim())) {
+            showError = true;
+            errorMessage = "Please add at least one milestone with content.";
+            return;
+        }
+        onComplete?.();
     }
 
 </script>
@@ -171,6 +191,9 @@
 
 <div class="pagenav">
     <button class="back" onclick={handleback}>Return to <br/> Signing & Activation</button>
+    <button class="complete-btn" onclick={handleComplete}>
+        <span>Complete Contract</span>
+    </button>
 </div>
 
 {#if showError}
@@ -209,6 +232,21 @@
     
     .back:hover { background-color: #7a1a1a; color: white; }
     .back:active  { transform: scale(0.97); }
+
+    .complete-btn {
+        flex: 0.18;
+        background-color: #1a73e8;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 9999px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .complete-btn:hover { background-color: #1557b0; }
+    .complete-btn:active { transform: scale(0.97); }
     
     .phase-container { 
         display: grid; 
@@ -283,6 +321,8 @@
     
     .editable-text { 
         flex: 1; 
+        width: 100%; 
+        box-sizing: border-box; 
         border: 1px solid #e5e7eb; 
         border-radius: 6px; 
         padding: 6px 10px; 
@@ -291,6 +331,8 @@
 
     .field-text {
         flex: 1;
+        width: 100%;
+        box-sizing: border-box;
         padding: 6px 10px;
         font-size: 0.95rem;
         color: #374151;

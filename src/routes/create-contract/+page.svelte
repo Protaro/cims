@@ -1,6 +1,6 @@
 <script lang="ts">
     import CreateContractMainPanel from "./CreateContractMainPanel.svelte";
-    import { Pencil, Check, Save, Loader2, FileText, ChevronDown } from 'lucide-svelte';
+    import { Pencil, Check, Save, Loader2, FileText, ChevronDown, X } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
     import { uploadFiles, saveFileRecords } from '$lib/fileService';
 
@@ -19,6 +19,7 @@
     let showModal = $state(false);
     let modalTitle = $state("");
     let modalMessage = $state("");
+    let showCancelModal = $state(false);
     
     onMount(async () => {
         const { data } = await getWorkflows();
@@ -168,11 +169,16 @@
         goto('/workflow');
     }
 
-    async function saveContractToDB(silent = false) {
+    async function completeContract() {
+        const status = contractData.postwork.contractStatus || "Active";
+        await saveContractToDB(false, status);
+    }
+
+    async function saveContractToDB(silent = false, statusOverride: string | null = null) {
         isSaving = true;
         const finalTitle = ContractName;
         const finalContractType = contractData.postwork.contractType || "Scholarship";
-        const finalContractStatus = contractData.postwork.contractStatus || "Draft";
+        const finalContractStatus = statusOverride ?? "Draft";
         
         const timestamp = new Date().toISOString(); 
 
@@ -284,7 +290,7 @@
 
             if (!silent) {
                 modalTitle = "Success";
-                modalMessage = "Contract saved successfully!";
+                modalMessage = statusOverride ? "Contract completed successfully!" : "Contract saved successfully!"; 
                 showModal = true;
             }
 
@@ -366,7 +372,7 @@
             </div>
 
             {#if contractData.workflow_id}
-                <button class="action-btn publish-btn" onclick={saveContractToDB} disabled={isSaving}>
+                <button class="action-btn publish-btn" onclick={() => saveContractToDB()} disabled={isSaving}>
                     {#if isSaving}
                         <Loader2 size={16} class="spin" />
                         <span>Saving...</span>
@@ -375,7 +381,8 @@
                         <span>Save Contract</span>
                     {/if}
                 </button>
-                <button class="action-btn cancel-contract-btn" onclick={() => goto('/view')} disabled={isSaving}>
+                <button class="action-btn cancel-contract-btn" onclick={() => showCancelModal = true}>
+                    <X size={16} strokeWidth={2.5} />
                     <span>Cancel Contract</span>
                 </button>
                 <button class="action-btn workflow-edit-btn" onclick={navigateToWorkflow} disabled={isSaving}>
@@ -389,7 +396,7 @@
     <div class="workflow-area">
         {#if contractData.workflow_id}
             {#key contractData.workflow_id}
-                <CreateContractMainPanel bind:contractData={contractData} bind:currentPhase={currentPhase} />
+                <CreateContractMainPanel bind:contractData={contractData} bind:currentPhase={currentPhase} onComplete={completeContract} />
             {/key}
         {:else}
             <div class="empty-state">
@@ -409,6 +416,23 @@
             <button class="modal-btn" onclick={() => showModal = false}>
                 OK
             </button>
+        </div>
+    </div>
+{/if}
+
+{#if showCancelModal}
+    <div class="modal-backdrop">
+        <div class="modal">
+            <h4>Cancel Contract</h4>
+            <p>Are you sure you want to cancel? Any unsaved changes will be lost.</p>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-secondary" onclick={() => showCancelModal = false}>
+                    Keep Editing
+                </button>
+                <button class="modal-btn modal-btn-danger" onclick={() => { showCancelModal = false; goto('/view'); }}>
+                    Yes, Cancel
+                </button>
+            </div>
         </div>
     </div>
 {/if}
@@ -694,6 +718,29 @@
         font-weight: bold;
         cursor: pointer; 
         transition: background-color 0.2s ease;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 20px;
+    }
+
+    .modal-btn-secondary {
+        background: #6b7280;
+    }
+
+    .modal-btn-secondary:hover {
+        background: #4b5563;
+    }
+
+    .modal-btn-danger {
+        background: #d93025;
+    }
+
+    .modal-btn-danger:hover {
+        background: #b3261e;
     }
 
     .modal-btn:hover { 

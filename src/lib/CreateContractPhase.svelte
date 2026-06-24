@@ -8,12 +8,14 @@
         phase: string;
         onPhaseChange: (p: string) => void;
         contractData: any;
+        onComplete?: () => void;
     }
 
     let { 
         phase, 
         onPhaseChange, 
         contractData = $bindable(),
+        onComplete,
     }: Props = $props();
 
     function changePhase(p: string) {
@@ -47,6 +49,7 @@
         <Postwork
             bind:data={contractData.postwork}
             on:back={() => changePhase("Signing and Activation")}
+            {onComplete}
         />
 
     {/if}
