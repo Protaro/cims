@@ -256,7 +256,7 @@
                 const title = cols[titleIdx] || `Imported Contract ${i}`;
                 const type = typeIdx >= 0 ? (cols[typeIdx] || 'Standard') : 'Standard';
                 const status = statusIdx >= 0 ? (cols[statusIdx] || 'Active') : 'Active';
-                const validStatuses = ['Active', 'On Hold', 'Completed', 'Terminated'];
+                const validStatuses = ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'];
                 const finalStatus = validStatuses.includes(status) ? status : 'Active';
 
                 const { error } = await supabase.from('contracts').insert({
@@ -361,7 +361,7 @@
                 </button>
                 {#if showStatusDropdown}
                     <div class="multi-select-dropdown" onclick={(e) => e.stopPropagation()}>
-                        {#each ['Active', 'On Hold', 'Completed', 'Terminated'] as s}
+                        {#each ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'] as s}
                             <label class="multi-select-option">
                                 <input type="checkbox" checked={statusValues.includes(s)} onchange={() => toggleFilter('status', s)} />
                                 <span>{s}</span>
@@ -459,12 +459,13 @@
                             </div>
                         </th>
                     {/each}
+                    <th class="th-action"></th>
                 </tr>
             </thead>
             <tbody>
                 {#if visibleContracts.length === 0}
                     <tr>
-                        <td colspan="6" style="text-align: center; color: #6b7280; padding: 2rem;">
+                        <td colspan="7" style="text-align: center; color: #6b7280; padding: 2rem;">
                             No contracts found matching your filters.
                         </td>
                     </tr>
@@ -492,6 +493,7 @@
                                 <select 
                                     class="status-dropdown" 
                                     class:status-active={contract.status === 'Active'}
+                                    class:status-draft={contract.status === 'Draft'}
                                     class:status-completed={contract.status === 'Completed'}
                                     class:status-terminated={contract.status === 'Terminated'}
                                     class:status-hold={contract.status === 'On Hold'}
@@ -499,10 +501,16 @@
                                     onchange={(e) => initiateStatusUpdate(contract, e.currentTarget.value)}
                                 >
                                     <option value="Active">Active</option>
+                                    <option value="Draft">Draft</option>
                                     <option value="On Hold">On Hold</option>
                                     <option value="Completed">Completed</option>
                                     <option value="Terminated">Terminated</option>
                                 </select>
+                            </td>
+                            <td class="td-action">
+                                <button class="row-delete-btn" onclick={() => confirmDelete([contract])} title="Delete contract">
+                                    <Trash2 size={15} strokeWidth={2.5} />
+                                </button>
                             </td>
                         </tr>
                     {/each}
@@ -692,7 +700,8 @@
     .multi-select-trigger {
         display: flex;
         align-items: center;
-        gap: 6px;
+        justify-content: space-between;
+        gap: 8px;
         padding: 10px 14px;
         border: 1px solid #d1d5db;
         border-radius: 8px;
@@ -703,6 +712,7 @@
         cursor: pointer;
         outline: none;
         white-space: nowrap;
+        min-width: 140px;
         transition: border-color 0.2s;
     }
 
@@ -893,6 +903,23 @@
 
     .th-checkbox, .td-checkbox { width: 48px; text-align: center; }
     .th-checkbox input, .td-checkbox input { width: 18px; height: 18px; cursor: pointer; accent-color: #7B1113; }
+    .th-action, .td-action { width: 48px; text-align: center; }
+    .row-delete-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #9ca3af;
+        padding: 4px;
+        border-radius: 6px;
+        transition: all 0.15s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .row-delete-btn:hover {
+        color: #dc2626;
+        background-color: #fef2f2;
+    }
 
     tr.selected { background-color: #fef2f2; }
     tr.selected:hover { background-color: #fde8e8; }
@@ -989,6 +1016,7 @@
     }
 
     .status-active { color: #1e8e3e; background-color: #e6f4ea; }
+    .status-draft { color: #6b7280; background-color: #f3f4f6; }
     .status-completed { color: #1a73e8; background-color: #e8f0fe; }
     .status-terminated { color: #d93025; background-color: #fadbd8; }
     .status-hold { color: #f57c00; background-color: #fef0e0; }

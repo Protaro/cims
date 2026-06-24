@@ -22,8 +22,8 @@
     let customContractType = $state("");
     let isCustomType = $state(false);
     
-    let contractStatus = $state(data.contractStatus || "Active");
-    const existingStatuses = ["Active", "On Hold", "Completed", "Terminated"];
+    let contractStatus = $state(data.contractStatus || "Draft");
+    const existingStatuses = ["Draft", "Active", "On Hold", "Completed", "Terminated"];
 
     let showError = $state(false);
     let errorMessage = $state("");

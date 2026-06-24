@@ -1,6 +1,6 @@
 <script lang="ts">
     import CreateContractMainPanel from "./CreateContractMainPanel.svelte";
-    import { Pencil, Check, Save, Loader2 } from 'lucide-svelte';
+    import { Pencil, Check, Save, Loader2, FileText } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
     import { uploadFiles, saveFileRecords } from '$lib/fileService';
 
@@ -85,23 +85,56 @@
                 checklist: postChecklist,
                 milestones: postChecklist,
                 contractType: "Scholarship",
-                contractStatus: "Active",
+                contractStatus: "Draft",
                 terminationType: "",
                 reason: ""
             }
         };
 
         isLoadingTemplate = false;
+
+        autoSaveDraft();
     }
- 
+
+    async function autoSaveDraft() {
+        if (!selectedWorkflowId || draftContractId) return;
+        isSavingDraft = true;
+        try {
+            const timestamp = new Date().toISOString();
+            const { data: newContract, error } = await supabase
+                .from('contracts')
+                .insert({
+                    title: ContractName,
+                    type: contractData.postwork.contractType || "Scholarship",
+                    status: 'Draft',
+                    editors: [userId],
+                    viewers: [userId],
+                    last_modified: timestamp
+                })
+                .select('id')
+                .single();
+
+            if (error) throw error;
+            draftContractId = newContract.id;
+            contractData.id = newContract.id;
+            draftSaved = true;
+        } catch (err) {
+            console.error("Draft auto-save failed:", err);
+        } finally {
+            isSavingDraft = false;
+        }
+    }
+
     let ContractName = $state("New Contract");
     let isEditing = $state(false);
     let isSaving = $state(false);
     let isLoadingTemplate = $state(false);
+    let isSavingDraft = $state(false);
+    let draftSaved = $state(false);
+    let draftContractId = $state<string | null>(null);
 
     let contractData = $state({
         id: null as string | null,
-        title: ContractName,
         workflow_id: "",
         prework: { checklist: [] as any },
         approval: { checklist:[] as any },
@@ -308,8 +341,10 @@
                     {/each}
                 </select>
                 
-                {#if isLoadingTemplate}
+                {#if isLoadingTemplate || isSavingDraft}
                     <Loader2 size={18} class="spin inline-icon" style="color: #6b7280;"/>
+                {:else if draftSaved}
+                    <FileText size={16} style="color: #6b7280;" title="Draft saved" />
                 {/if}
             </div>
 
@@ -511,12 +546,6 @@
         cursor: not-allowed;
     }
     
-    .locked-text {
-        font-size: 0.85rem;
-        color: #991b1b;
-        font-weight: 600;
-    }
-
     .empty-state { 
         text-align: center; 
         color: #6b7280; 
