@@ -28,12 +28,14 @@
 
         <Prework
             bind:data={contractData.prework}
+            stageId={contractData.id}
             on:next={() => changePhase("Review and Approval")}
         />
     {:else if phase === "Review and Approval"}
 
         <ReviewApproval
             bind:data={contractData.approval}
+            stageId={contractData.id}
             on:back={() => changePhase("Prework")}
             on:next={() => changePhase("Signing and Activation")}
         />
@@ -41,6 +43,7 @@
 
         <SigningActivation
             bind:data={contractData.activation}
+            stageId={contractData.id}
             on:back={() => changePhase("Review and Approval")}
             on:next={() => changePhase("Postwork")}
         />

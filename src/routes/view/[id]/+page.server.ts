@@ -61,12 +61,27 @@ export const load: PageServerLoad = async ({
             termination: { type: '', reason: '' }
         };
 
+    const { data: stageFiles } = await supabase
+        .from('stage_files')
+        .select('stage_type, file_url')
+        .eq('stage_id', params.id);
+
+    const fileGroups: Record<string, string[]> = {};
+    if (stageFiles) {
+        for (const f of stageFiles) {
+            const t = f.stage_type;
+            if (!fileGroups[t]) fileGroups[t] = [];
+            fileGroups[t].push(f.file_url);
+        }
+    }
+
     return {
         contract,
         prework,
         approvals,
         activations,
         postwork,
+        fileGroups,
         users: users ?? [],
         session_id: access?.id ?? null
     };

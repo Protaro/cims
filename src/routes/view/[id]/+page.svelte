@@ -10,6 +10,7 @@
     let approvals = $derived(data.approvals || { stages: [] });
     let activations = $derived(data.activations || []);
     let postwork = $derived(data.postwork || { milestones: [], termination: { type: "", reason: "" } });
+    let fileGroups = $derived(data.fileGroups || {});
 
     const editors = $derived(contract?.editors ?? []);
     const viewers = $derived(contract?.viewers ?? []);
@@ -188,6 +189,28 @@
             </div>
         {/if}
     </div>
+
+    <div class="info-card">
+        <h2>Attached Files</h2>
+        {#if Object.keys(fileGroups).length === 0}
+            <p class="empty-state">No files attached to this contract.</p>
+        {:else}
+            {#each Object.entries(fileGroups) as [stageType, urls]}
+                <div class="file-group">
+                    <h3 class="stage-title" style="text-transform: capitalize;">{stageType}</h3>
+                    <div class="file-list">
+                        {#each urls as url}
+                            <div class="file-item">
+                                <a href={url} target="_blank" rel="noopener noreferrer" class="file-link">
+                                    {url.split('/').pop()}
+                                </a>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/each}
+        {/if}
+    </div>
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -274,6 +297,20 @@
         gap: 0.75rem;
         flex-wrap: wrap;
     }
+
+    .file-group { margin-bottom: 1.25rem; }
+    .file-group:last-child { margin-bottom: 0; }
+    .file-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .file-item {
+        display: flex; align-items: center;
+        background: #f3f4f6; padding: 8px 12px;
+        border-radius: 6px; font-size: 0.9rem;
+    }
+    .file-link {
+        color: #1a73e8; text-decoration: none;
+        font-weight: 500; word-break: break-all;
+    }
+    .file-link:hover { text-decoration: underline; color: #1557b0; }
 
     @media (max-width: 768px) {
         .main-content { padding: 1rem; }
