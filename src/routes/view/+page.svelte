@@ -36,14 +36,6 @@
     const MAX_CSV_SIZE = 5 * 1024 * 1024;
     const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 
-    let showUploadModal = $state(false);
-    let uploadTargetContract = $state<any>(null);
-    let uploadStageType = $state('prework');
-    let uploadFilesList = $state<File[]>([]);
-    let uploadUploading = $state(false);
-    let uploadResult = $state('');
-    let uploadResultType = $state<'success' | 'error' | ''>('');
-    
     let selectedIds = $state<Set<string>>(new Set());
     let existingTypes = $state<string[]>([]);
 
@@ -584,56 +576,6 @@
         csvRolledBack = false;
     }
 
-    function openUploadModal(contract: any) {
-        uploadTargetContract = contract;
-        uploadStageType = 'prework';
-        uploadFilesList = [];
-        uploadResult = '';
-        uploadResultType = '';
-        showUploadModal = true;
-    }
-
-    function handleUploadFileSelect(event: Event) {
-        const input = event.target as HTMLInputElement;
-        if (input.files) {
-            uploadFilesList = [...uploadFilesList, ...Array.from(input.files)];
-        }
-    }
-
-    function removeUploadFile(index: number) {
-        uploadFilesList = uploadFilesList.filter((_, i) => i !== index);
-    }
-
-    async function confirmUpload() {
-        if (!uploadTargetContract || uploadFilesList.length === 0) return;
-        uploadUploading = true;
-        uploadResult = '';
-        uploadResultType = '';
-        try {
-            const urls = await uploadFiles(uploadTargetContract.id, uploadFilesList);
-            await saveFileRecords(uploadStageType, uploadTargetContract.id, urls);
-            uploadResult = `Uploaded ${urls.length} file(s) to "${uploadTargetContract.title}".`;
-            uploadResultType = 'success';
-            uploadFilesList = [];
-            await invalidateAll();
-        } catch (err: any) {
-            uploadResult = `Upload failed: ${err.message || 'Unknown error'}`;
-            uploadResultType = 'error';
-        } finally {
-            uploadUploading = false;
-        }
-    }
-
-    function resetUploadModal() {
-        showUploadModal = false;
-        uploadTargetContract = null;
-        uploadStageType = 'prework';
-        uploadFilesList = [];
-        uploadUploading = false;
-        uploadResult = '';
-        uploadResultType = '';
-    }
-
     function formatDate(dateString: string) {
         if (!dateString) return '--';
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -820,13 +762,12 @@
                             </div>
                         </th>
                     {/each}
-                    <th class="th-actions">ACTIONS</th>
                 </tr>
             </thead>
             <tbody>
                 {#if visibleContracts.length === 0}
                     <tr>
-                        <td colspan="7" style="text-align: center; color: #6b7280; padding: 2rem;">
+                        <td colspan="6" style="text-align: center; color: #6b7280; padding: 2rem;">
                             No contracts found matching your filters.
                         </td>
                     </tr>
@@ -865,11 +806,6 @@
                                     <option value="Completed">Completed</option>
                                     <option value="Terminated">Terminated</option>
                                 </select>
-                            </td>
-                            <td class="td-actions">
-                                <button class="upload-row-btn" onclick={() => openUploadModal(contract)} title="Upload files to this contract">
-                                    <Upload size={16} strokeWidth={2.5} />
-                                </button>
                             </td>
                         </tr>
                     {/each}
@@ -1072,56 +1008,6 @@
         </div>
     </div>
 {/if}
-{/if}
-
-<!-- Quick Upload Modal -->
-{#if showUploadModal}
-    <div class="modal-overlay" onclick={() => { if (!uploadUploading) resetUploadModal(); }}>
-        <div class="modal-content csv-modal-content" onclick={(e) => e.stopPropagation()}>
-            <h3>Upload Files</h3>
-            <p class="csv-help">
-                Upload files to <strong>"{uploadTargetContract?.title}"</strong>
-            </p>
-
-            <div class="upload-stage-selector">
-                <label class="detail-label">Stage:</label>
-                <select bind:value={uploadStageType} class="stage-select" disabled={uploadUploading}>
-                    <option value="prework">Prework</option>
-                    <option value="approval">Review & Approval</option>
-                    <option value="activation">Signing & Activation</option>
-                </select>
-            </div>
-
-            <div class="csv-upload-zone">
-                <input type="file" multiple onchange={handleUploadFileSelect} id="upload-file-input" class="csv-input" />
-                <label for="upload-file-input" class="csv-label">
-                    {uploadFilesList.length > 0 ? `${uploadFilesList.length} file(s) selected` : 'Choose files to upload...'}
-                </label>
-            </div>
-
-            {#if uploadFilesList.length > 0}
-                <div class="csv-file-list">
-                    {#each uploadFilesList as file, i}
-                        <div class="csv-file-item">
-                            <span>{file.name}</span>
-                            <button class="csv-file-remove" onclick={() => removeUploadFile(i)}>×</button>
-                        </div>
-                    {/each}
-                </div>
-            {/if}
-
-            {#if uploadResult}
-                <p class="csv-result" class:csv-success={uploadResultType === 'success'} class:csv-error={uploadResultType === 'error'}>{uploadResult}</p>
-            {/if}
-
-            <div class="modal-actions">
-                <button class="btn-cancel" onclick={resetUploadModal} disabled={uploadUploading}>Cancel</button>
-                <button class="btn-confirm" onclick={confirmUpload} disabled={uploadUploading || uploadFilesList.length === 0}>
-                    {uploadUploading ? 'Uploading...' : 'Upload'}
-                </button>
-            </div>
-        </div>
-    </div>
 {/if}
 
 <style>
@@ -1445,23 +1331,6 @@
         background-color: #035a24; color: white;
     }
     .csv-btn:hover { background-color: #02451C; }
-
-    .th-actions, .td-actions { width: 60px; text-align: center; }
-    .upload-row-btn {
-        background: transparent; border: 1px solid #d1d5db;
-        border-radius: 6px; cursor: pointer; padding: 4px 8px;
-        color: #6b7280; transition: all 0.2s; display: inline-flex;
-        align-items: center; justify-content: center;
-    }
-    .upload-row-btn:hover { background: #035a24; color: white; border-color: #035a24; }
-
-    .upload-stage-selector { margin-bottom: 14px; }
-    .stage-select {
-        width: 100%; padding: 8px 10px; border: 1px solid #d1d5db;
-        border-radius: 6px; font-family: 'Poppins', sans-serif;
-        font-size: 0.9rem; margin-top: 4px; outline: none;
-    }
-    .stage-select:focus { border-color: #035a24; }
 
     .csv-modal-content { width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto; text-align: left; }
     .csv-modal-content h3 { text-align: center; margin-bottom: 12px; }
