@@ -1,16 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from "svelte";
-  import {
-        blur,
-        crossfade,
-        draw,
-        fade,
-        fly,
-        scale,
-        slide
-    } from 'svelte/transition';
+  import { fly } from 'svelte/transition';
   import { supabase } from "$lib/supabaseInit"; 
-  import { uploadFiles, saveFileRecords, loadFiles, deleteFile } from '$lib/fileService';
 
   export let preworkId: string; 
 
@@ -24,9 +15,6 @@
   let isSaving = false;
   let isLoading = true;
   let showConfirmModal = false;
-  let files: File[] = [];
-  let newFiles: File[] = [];
-  let existingFiles: string[] = [];
 
 
   // Store dictionary reqs from the DB
@@ -50,10 +38,6 @@
   // updates checklist when you click a different workflow
   $: if (preworkId) {
       loadChecklist(preworkId);
-
-      loadFiles('prework', preworkId).then(files => {
-        existingFiles = files;
-    });
   }
 
   // loading logic
@@ -84,34 +68,6 @@
     }
     isLoading = false;
   }
-
-  async function deleteExistingFile(index: number) {
-    const fileUrl = existingFiles[index];
-
-    try {
-        const url = new URL(fileUrl);
-        const path = url.pathname.split('/storage/v1/object/public/stage-files/')[1];
-
-        const { error: storageError } = await supabase.storage
-            .from('stage-files')
-            .remove([path]);
-
-        if (storageError) throw storageError;
-
-        const { error: dbError } = await supabase
-            .from('prework_files')
-            .delete()
-            .eq('file_url', fileUrl);
-
-        if (dbError) throw dbError;
-
-        existingFiles = existingFiles.filter((_, i) => i !== index);
-
-    } catch (err) {
-        console.error("Delete failed:", err);
-        alert("Failed to delete file.");
-    }
-}
 
   function addNewField() {
     checklist =[...checklist, { text: "", done: false, reqType: "String" }];
@@ -188,10 +144,6 @@
 
             if (bridgeErr) throw bridgeErr;
         }
-        const uploadedUrls = await uploadFiles(preworkId, newFiles);
-        if (uploadedUrls.length > 0) {
-            await saveFileRecords('prework', preworkId, uploadedUrls);
-        }
 
         showConfirmModal = false;
         dispatch("next"); // tell parent to switch phase
@@ -203,39 +155,6 @@
         isSaving = false;
     }
   }
-
-  function handleFileSelect(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files) {
-        newFiles = [...newFiles, ...Array.from(input.files)];
-    }
-}
-
-async function handleDelete(index: number) {
-    const url = existingFiles[index];
-
-    await deleteFile('prework', preworkId, url);
-
-    existingFiles = existingFiles.filter((_, i) => i !== index);
-}
-
-function handleDrop(event: DragEvent) {
-    event.preventDefault();
-    if (event.dataTransfer?.files) {
-        newFiles = [...newFiles, ...Array.from(event.dataTransfer.files)];
-    }
-}
-
-function handleDragOver(event: DragEvent) {
-    event.preventDefault();
-    if (event.dataTransfer?.files){
-        newFiles = [...newFiles, ...Array.from(event.dataTransfer.files)];
-    }
-}
-
-function removeNewFile(index: number) {
-    newFiles = newFiles.filter((_, i) => i !== index);
-}
 
 </script>
 
@@ -286,42 +205,6 @@ function removeNewFile(index: number) {
 			<button class="add-button-field" onclick={addNewField}>+ Add Custom Field</button>
 		</div>
 	</div>
-
-	<!-- FILE UPLOAD -->
-	<div class="upload-section">
-		<div class="upload-header">
-			<h3>Add Default Files</h3>
-		</div>
-        <input type="file" multiple class="hidden-file-input" onchange={handleFileSelect} />
-        <div class="drop-zone" role="button" tabindex="0" ondrop={handleDrop} ondragover={handleDragOver}
-            onclick={() => (document.querySelector('.hidden-file-input') as HTMLInputElement)?.click()}
-            onkeydown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    (document.querySelector('.hidden-file-input') as HTMLInputElement)?.click();
-                }}}>
-                <p> 
-                    <button type="button" class="blue-text"
-                    onclick={(e) => {e.stopPropagation(); (document.querySelector('.hidden-file-input') as HTMLInputElement)?.click();}}> Choose file </button> 
-                    to upload </p>
-                </div>
-
-                <!-- EXISTING FILES FROM DB -->
-                 {#each existingFiles as url, i}
-                 <div class="file-item">
-        <a href={url} target="_blank">{url.split('/').pop()}</a>
-        <button onclick={() => handleDelete(i)}>×</button>
-    </div>
-                 {/each}
-                
-                <!-- NEW FILES (NOT YET SAVED) -->
-                 {#each newFiles as file, i}
-                 <div class="file-item">
-        <a href={URL.createObjectURL(file)} target="_blank">{file.name}</a>
-        <button onclick={() => newFiles = newFiles.filter((_, j) => j !== i)}>×</button>
-    </div>
-
-            {/each}
-        </div>
 
 	<div class="pagenav">
 		<button class="next" onclick={() => showConfirmModal = true} disabled={isLoading}>
@@ -468,31 +351,6 @@ function removeNewFile(index: number) {
         align-self: flex-start;
 	}
 
-	.upload-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-	}
-
-	.drop-zone {
-		border: 1px dashed #d1d5db;
-		background-color: #f9fafb;
-		border-radius: 12px;
-		padding: 30px;
-		text-align: center;
-		margin-bottom: 15px;
-	}
-
-	.blue-text {
-        background: none;
-        border: none;
-        padding: 0;
-        font: inherit;
-		color: #3b00ff;
-		font-weight: bold;
-		cursor: pointer;
-	}
-
 	.cancel-button {
 		background: white;
 		border: 1px solid #e5e7eb;
@@ -566,18 +424,4 @@ function removeNewFile(index: number) {
         gap: 15px;
     }
 
-    .hidden-file-input {
-    display: none;
-}
-
-.file-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #f3f4f6;
-    padding: 8px 12px;
-    border-radius: 6px;
-    margin-bottom: 8px;
-    font-size: 0.9rem;
-}
 </style>

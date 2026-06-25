@@ -4,8 +4,8 @@
     import { loadFiles, deleteFile } from '$lib/fileService';
     const dispatch = createEventDispatcher();
 
-    interface Props { data: any; }
-    let { data = $bindable() }: Props = $props();
+    interface Props { data: any; stageId?: string; }
+    let { data = $bindable(), stageId = "" }: Props = $props();
 
     type Item = { text: string; details: string; isCustom?: boolean };
 
@@ -20,13 +20,13 @@
     let newFiles = $state<File[]>([]);
 
     onMount(async () => {
-        if (data.stageId) {
-            existingFiles = await loadFiles('prework', data.stageId);
+        if (stageId) {
+            existingFiles = await loadFiles('prework', stageId);
         }
     });
 
-    function loadContractFiles(stageId: string) {
-        loadFiles('prework', stageId).then(files => {
+    function loadContractFiles(sId: string) {
+        loadFiles('prework', sId).then(files => {
             existingFiles = files;
         });
     }
@@ -95,10 +95,10 @@
     }
 
     async function deleteExistingFile(index: number) {
-        if (!data.stageId) return;
+        if (!stageId) return;
         const url = existingFiles[index];
         try {
-            await deleteFile('prework', data.stageId, url);
+            await deleteFile('prework', stageId, url);
             existingFiles = existingFiles.filter((_, i) => i !== index);
         } catch (err) {
             console.error("Failed to delete file:", err);
