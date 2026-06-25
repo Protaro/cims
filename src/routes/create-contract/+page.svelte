@@ -1,6 +1,6 @@
 <script lang="ts">
     import CreateContractMainPanel from "./CreateContractMainPanel.svelte";
-    import { Pencil, Check, Save, Loader2, FileText, ChevronDown, X } from 'lucide-svelte';
+    import { Pencil, Check, Save, ChevronDown, X } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
     import { uploadFiles, saveFileRecords } from '$lib/fileService';
 
@@ -87,7 +87,7 @@
                 checklist: postChecklist,
                 milestones: postChecklist,
                 contractType: "Scholarship",
-                contractStatus: "Draft",
+                contractStatus: "",
                 terminationType: "",
                 reason: ""
             }
@@ -95,46 +95,12 @@
 
         isLoadingTemplate = false;
 
-        autoSaveDraft();
-    }
-
-    async function autoSaveDraft() {
-        if (!selectedWorkflowId || draftContractId) return;
-        isSavingDraft = true;
-        try {
-            const timestamp = new Date().toISOString();
-            const { data: newContract, error } = await supabase
-                .from('contracts')
-                .insert({
-                    title: ContractName,
-                    type: contractData.postwork.contractType || "Scholarship",
-                    status: 'Draft',
-                    editors: [userId],
-                    viewers: [userId],
-                    last_modified: timestamp
-                })
-                .select('id')
-                .single();
-
-            if (error) throw error;
-            draftContractId = newContract.id;
-            contractData.id = newContract.id;
-            draftSaved = true;
-        } catch (err) {
-            console.error("Draft auto-save failed:", err);
-        } finally {
-            isSavingDraft = false;
-        }
     }
 
     let ContractName = $state("New Contract");
     let isEditing = $state(false);
     let isSaving = $state(false);
     let isLoadingTemplate = $state(false);
-    let isSavingDraft = $state(false);
-    let draftSaved = $state(false);
-    let draftContractId = $state<string | null>(null);
-
     let contractData = $state({
         id: null as string | null,
         workflow_id: "",
@@ -178,7 +144,7 @@
         isSaving = true;
         const finalTitle = ContractName;
         const finalContractType = contractData.postwork.contractType || "Scholarship";
-        const finalContractStatus = statusOverride ?? "Draft";
+        const finalContractStatus = statusOverride ?? (contractData.postwork.contractStatus || "On Hold");
         
         const timestamp = new Date().toISOString(); 
 
@@ -285,9 +251,6 @@
                 }
             }
 
-            draftSaved = true;
-            draftContractId = contractId;
-
             if (!silent) {
                 modalTitle = "Success";
                 modalMessage = statusOverride ? "Contract completed successfully!" : "Contract saved successfully!"; 
@@ -363,12 +326,6 @@
                     </select>
                     <ChevronDown size={16} class="select-chevron" />
                 </div>
-                
-                {#if isLoadingTemplate || isSavingDraft}
-                    <Loader2 size={18} class="spin inline-icon" style="color: #6b7280;"/>
-                {:else if draftSaved}
-                    <FileText size={16} style="color: #6b7280;" title="Draft saved" />
-                {/if}
             </div>
 
             {#if contractData.workflow_id}

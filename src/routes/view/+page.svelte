@@ -32,7 +32,7 @@
     let csvCreatedIds = $state<string[]>([]);
     let csvRolledBack = $state(false);
 
-    const VALID_STATUSES = ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'];
+    const VALID_STATUSES = ['Active', 'On Hold', 'Completed', 'Terminated'];
     const MAX_CSV_SIZE = 5 * 1024 * 1024;
     const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
     
@@ -659,11 +659,11 @@
                 {#if showStatusDropdown}
                     <div class="multi-select-dropdown" onclick={(e) => e.stopPropagation()}>
                         <label class="multi-select-option select-all-option">
-                            <input type="checkbox" checked={allFilterSelected('status', ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'])} onchange={() => toggleSelectAllFilter('status', ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'])} />
-                            <span>{allFilterSelected('status', ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated']) ? 'Deselect All' : 'Select All'}</span>
+                            <input type="checkbox" checked={allFilterSelected('status', ['Active', 'On Hold', 'Completed', 'Terminated'])} onchange={() => toggleSelectAllFilter('status', ['Active', 'On Hold', 'Completed', 'Terminated'])} />
+                            <span>{allFilterSelected('status', ['Active', 'On Hold', 'Completed', 'Terminated']) ? 'Deselect All' : 'Select All'}</span>
                         </label>
                         <div class="select-all-divider"></div>
-                        {#each ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'] as s}
+                        {#each ['Active', 'On Hold', 'Completed', 'Terminated'] as s}
                             <label class="multi-select-option">
                                 <input type="checkbox" checked={statusValues.includes(s) || (!statusShowNone && !$page.url.searchParams.has('status'))} onchange={() => toggleFilter('status', s)} />
                                 <span>{s}</span>
@@ -710,7 +710,7 @@
             <div class="chips-group">
                 <span class="chips-label">Status:</span>
                 <div class="chips-list">
-                    {#each statusValues.length > 0 ? statusValues : ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'] as s}
+                    {#each statusValues.length > 0 ? statusValues : ['Active', 'On Hold', 'Completed', 'Terminated'] as s}
                         <span class="chip chip-status" onclick={() => toggleFilter('status', s)}>{s}<span class="chip-remove">&times;</span></span>
                     {/each}
                 </div>
@@ -782,8 +782,8 @@
                                 />
                             </td>
                             <td class="td-title">
-                                <a href="/view/{contract.id}" class="contract-link">
-                                    {contract.title}
+                                <a href="/view/{contract.id}" class="contract-link" class:draft-title={!contract.status || contract.status === 'On Hold'}>
+                                    {contract.title}{!contract.status || contract.status === 'On Hold' ? '*' : ''}
                                 </a>
                             </td>
                             <td class="date-cell">{formatDate(contract.created_at)}</td>
@@ -795,7 +795,6 @@
                                 <select 
                                     class="status-dropdown" 
                                     class:status-active={contract.status === 'Active'}
-                                    class:status-draft={contract.status === 'Draft'}
                                     class:status-completed={contract.status === 'Completed'}
                                     class:status-terminated={contract.status === 'Terminated'}
                                     class:status-hold={contract.status === 'On Hold'}
@@ -803,7 +802,6 @@
                                     onchange={(e) => initiateStatusUpdate(contract, e.currentTarget.value)}
                                 >
                                     <option value="Active">Active</option>
-                                    <option value="Draft">Draft</option>
                                     <option value="On Hold">On Hold</option>
                                     <option value="Completed">Completed</option>
                                     <option value="Terminated">Terminated</option>
@@ -1418,6 +1416,7 @@
         color: #7B1113;
     }
 
+    .draft-title { color: #e67e22; }
     .date-cell {
         color: #6b7280;
         font-size: 0.9rem;
@@ -1449,7 +1448,6 @@
     }
 
     .status-active { color: #1e8e3e; background-color: #e6f4ea; }
-    .status-draft { color: #6b7280; background-color: #f3f4f6; }
     .status-completed { color: #1a73e8; background-color: #e8f0fe; }
     .status-terminated { color: #d93025; background-color: #fadbd8; }
     .status-hold { color: #f57c00; background-color: #fef0e0; }
