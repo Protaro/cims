@@ -52,9 +52,12 @@
     let statusValues = $derived(($page.url.searchParams.get('status') || '').split(',').filter(Boolean));
     let searchValue = $derived(($page.url.searchParams.get('search') || '').toLowerCase());
 
-    let currentSort = $derived($page.url.searchParams.get('sort') || 'last_modified-desc');
-    let sortKey = $derived(currentSort.split('-')[0]);
-    let sortAsc = $derived(currentSort.split('-')[1] === 'asc');
+    let currentSort = $derived($page.url.searchParams.get('sort') || 'last_modified:desc');
+    let sortParts = $derived(currentSort.split(':'));
+    let sortKey = $derived(sortParts[0]);
+    let sortOrder = $derived(sortParts[1] || 'desc');
+    let sortAsc = $derived(sortOrder === 'asc');
+    let sortGroupValue = $derived(sortOrder !== 'asc' && sortOrder !== 'desc' ? sortOrder : null);
 
     const visibleContracts = $derived(
         (contracts ?? [])
@@ -79,13 +82,18 @@
                 return true;
             })
             .sort((a, b) => {
-                let aVal: any, bVal: any;
+                if (sortGroupValue && (sortKey === 'type' || sortKey === 'status')) {
+                    const aMatch = a[sortKey] === sortGroupValue ? 0 : 1;
+                    const bMatch = b[sortKey] === sortGroupValue ? 0 : 1;
+                    if (aMatch !== bMatch) return aMatch - bMatch;
+                }
+                let aVal: string, bVal: string;
                 if (sortKey === 'title') {
                     aVal = a.title?.toLowerCase() ?? '';
                     bVal = b.title?.toLowerCase() ?? '';
                 } else {
-                    aVal = a[sortKey] ?? '';
-                    bVal = b[sortKey] ?? '';
+                    aVal = (a[sortKey] ?? '').toLowerCase();
+                    bVal = (b[sortKey] ?? '').toLowerCase();
                 }
                 if (aVal < bVal) return sortAsc ? -1 : 1;
                 if (aVal > bVal) return sortAsc ? 1 : -1;
@@ -188,13 +196,36 @@
         navigate(newUrl);
     }
 
+    function getUniqueValues(key: string): string[] {
+        return [...new Set((contracts ?? []).map(c => c[key]).filter(Boolean))];
+    }
+
     function updateSort(key: string) {
         const newUrl = new URL($page.url);
-        let newOrder = 'asc';
-        if (sortKey === key) {
-            newOrder = sortAsc ? 'desc' : 'asc';
+        if ((key === 'type' || key === 'status') && contracts) {
+            const uniqueValues = getUniqueValues(key);
+            if (sortKey !== key) {
+                newUrl.searchParams.set('sort', `${key}:asc`);
+            } else if (sortOrder === 'asc') {
+                newUrl.searchParams.set('sort', `${key}:desc`);
+            } else if (sortOrder === 'desc') {
+                newUrl.searchParams.set('sort', `${key}:${uniqueValues[0]}`);
+            } else {
+                const currentIdx = uniqueValues.indexOf(sortOrder);
+                const nextIdx = currentIdx + 1;
+                if (nextIdx < uniqueValues.length) {
+                    newUrl.searchParams.set('sort', `${key}:${uniqueValues[nextIdx]}`);
+                } else {
+                    newUrl.searchParams.set('sort', `${key}:asc`);
+                }
+            }
+        } else {
+            let newOrder = 'asc';
+            if (sortKey === key) {
+                newOrder = sortAsc ? 'desc' : 'asc';
+            }
+            newUrl.searchParams.set('sort', `${key}:${newOrder}`);
         }
-        newUrl.searchParams.set('sort', `${key}-${newOrder}`);
         navigate(newUrl);
     }
 
@@ -719,7 +750,13 @@
                                  column.toUpperCase()}
                                 <span class="sort-icon">
                                     {#if sortKey === column}
-                                        {#if sortAsc}&#9650;{:else}&#9660;{/if}
+                                        {#if sortGroupValue && (column === 'type' || column === 'status')}
+                                            {sortGroupValue}
+                                        {:else if sortAsc}
+                                            &#9650;
+                                        {:else}
+                                            &#9660;
+                                        {/if}
                                     {/if}
                                 </span>
                             </div>
