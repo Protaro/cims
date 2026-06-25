@@ -17,7 +17,7 @@
     
     let lastWorkflowId = $state($contractStore.workflowId);
     let existingFiles = $state<string[]>([]);
-    let newFiles = $state<File[]>([]);
+    let newFiles = $state<File[]>(data.files || []);
 
     onMount(async () => {
         if (stageId) {
