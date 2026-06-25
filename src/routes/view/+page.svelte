@@ -6,6 +6,8 @@
     import { page } from '$app/stores';
     import { ChevronDown, Trash2, Upload, FilePlusCorner } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
+    import { parseCsv } from '$lib/csvParser';
+    import { uploadFiles, saveFileRecords, deleteFile } from '$lib/fileService';
 
     let { data } = $props();
     let { access, contracts, users, session_id} = $derived(data); 
@@ -20,9 +22,19 @@
     let deleteTargets = $state<any[]>([]);
 
     let showCsvModal = $state(false);
+    let csvStep = $state<'upload' | 'preview' | 'result'>('upload');
     let csvFile = $state<File | null>(null);
+    let csvAttachmentFiles = $state<File[]>([]);
+    let csvParsedRows = $state<any[]>([]);
     let csvImporting = $state(false);
-    let csvResult = $state("");
+    let csvResult = $state('');
+    let csvResultType = $state<'success' | 'error' | ''>('');
+    let csvCreatedIds = $state<string[]>([]);
+    let csvRolledBack = $state(false);
+
+    const VALID_STATUSES = ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'];
+    const MAX_CSV_SIZE = 5 * 1024 * 1024;
+    const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
     
     let selectedIds = $state<Set<string>>(new Set());
     let existingTypes = $state<string[]>([]);
@@ -267,75 +279,270 @@
     function handleCsvFileSelect(event: Event) {
         const input = event.target as HTMLInputElement;
         if (input.files && input.files[0]) {
-            csvFile = input.files[0];
+            const file = input.files[0];
+            if (file.size > MAX_CSV_SIZE) {
+                csvResult = `CSV file exceeds ${MAX_CSV_SIZE / 1024 / 1024}MB limit.`;
+                csvResultType = 'error';
+                return;
+            }
+            csvFile = file;
+            csvResult = '';
+            csvResultType = '';
         }
     }
 
-    async function importCsv() {
+    function handleAttachmentSelect(event: Event) {
+        const input = event.target as HTMLInputElement;
+        if (input.files) {
+            for (const file of Array.from(input.files)) {
+                if (file.size > MAX_ATTACHMENT_SIZE) {
+                    csvResult = `File "${file.name}" exceeds ${MAX_ATTACHMENT_SIZE / 1024 / 1024}MB limit.`;
+                    csvResultType = 'error';
+                    return;
+                }
+            }
+            csvAttachmentFiles = [...csvAttachmentFiles, ...Array.from(input.files)];
+            csvResult = '';
+            csvResultType = '';
+        }
+    }
+
+    function removeAttachmentFile(index: number) {
+        csvAttachmentFiles = csvAttachmentFiles.filter((_, i) => i !== index);
+    }
+
+    async function parseAndPreview() {
         if (!csvFile) return;
-        csvImporting = true;
-        csvResult = "";
+        csvResult = '';
+        csvResultType = '';
 
         try {
             const text = await csvFile.text();
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-            if (lines.length < 2) {
-                csvResult = "CSV must have a header row and at least one data row.";
-                csvImporting = false;
+            const { headers, rows } = parseCsv(text);
+
+            if (headers.length === 0) {
+                csvResult = 'CSV file appears empty or invalid.';
+                csvResultType = 'error';
                 return;
             }
 
-            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
             const titleIdx = headers.indexOf('title');
-            const typeIdx = headers.indexOf('type');
-            const statusIdx = headers.indexOf('status');
-
             if (titleIdx === -1) {
                 csvResult = "CSV must have a 'title' column.";
-                csvImporting = false;
+                csvResultType = 'error';
                 return;
             }
 
-            const userId = session_id;
-            let imported = 0;
-            let errors = 0;
+            const typeIdx = headers.indexOf('type');
+            const statusIdx = headers.indexOf('status');
+            const workflowIdx = headers.indexOf('workflow_id');
+            const filesIdx = headers.indexOf('files');
 
-            for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.trim());
-                const title = cols[titleIdx] || `Imported Contract ${i}`;
-                const type = typeIdx >= 0 ? (cols[typeIdx] || 'Standard') : 'Standard';
-                const status = statusIdx >= 0 ? (cols[statusIdx] || 'Active') : 'Active';
-                const validStatuses = ['Active', 'Draft', 'On Hold', 'Completed', 'Terminated'];
-                const finalStatus = validStatuses.includes(status) ? status : 'Active';
+            if (rows.length === 0) {
+                csvResult = 'CSV has no data rows.';
+                csvResultType = 'error';
+                return;
+            }
 
-                const { error } = await supabase.from('contracts').insert({
+            const parsed = rows.map((row, i) => {
+                const errs: string[] = [];
+                const title = row[titleIdx]?.trim() || '';
+                if (!title) errs.push('Missing title');
+
+                const type = typeIdx >= 0 ? (row[typeIdx]?.trim() || 'Standard') : 'Standard';
+                const status = statusIdx >= 0 ? (row[statusIdx]?.trim() || 'Active') : 'Active';
+                if (!VALID_STATUSES.includes(status)) {
+                    errs.push(`Invalid status "${status}"`);
+                }
+
+                const workflow_id = workflowIdx >= 0 ? (row[workflowIdx]?.trim() || '') : '';
+                const files = filesIdx >= 0
+                    ? (row[filesIdx]?.split(';').map(f => f.trim()).filter(Boolean) || [])
+                    : [];
+
+                const missingFiles = files.filter(f => !csvAttachmentFiles.some(af => af.name === f));
+
+                return {
+                    index: i + 1,
                     title,
                     type,
-                    status: finalStatus,
-                    editors: [userId],
-                    viewers: [userId],
-                    last_modified: new Date().toISOString()
-                });
+                    status,
+                    workflow_id,
+                    files,
+                    missingFiles,
+                    valid: errs.length === 0 && missingFiles.length === 0,
+                    errors: errs,
+                };
+            });
 
-                if (error) {
-                    console.error(`Row ${i} error:`, error);
-                    errors++;
-                } else {
-                    imported++;
+            csvParsedRows = parsed;
+            csvStep = 'preview';
+        } catch (err) {
+            console.error('CSV parse error:', err);
+            csvResult = 'Failed to parse CSV. Ensure it is a valid file.';
+            csvResultType = 'error';
+        }
+    }
+
+    async function importCsvFromPreview() {
+        csvImporting = true;
+        csvResult = '';
+        csvResultType = '';
+        csvCreatedIds = [];
+        csvRolledBack = false;
+
+        const userId = session_id;
+        let imported = 0;
+        const rowErrors: string[] = [];
+
+        try {
+            for (const row of csvParsedRows) {
+                if (!row.valid) {
+                    rowErrors.push(`Row ${row.index}: Skipped - ${row.errors.join('; ')}`);
+                    continue;
+                }
+
+                const timestamp = new Date().toISOString();
+                const { data: contract, error: insertError } = await supabase
+                    .from('contracts')
+                    .insert({
+                        title: row.title,
+                        type: row.type,
+                        status: row.status,
+                        editors: [userId],
+                        viewers: [userId],
+                        last_modified: timestamp
+                    })
+                    .select('id')
+                    .single();
+
+                if (insertError) {
+                    throw new Error(`Row ${row.index}: ${insertError.message}`);
+                }
+
+                const contractId = contract.id;
+                csvCreatedIds.push(contractId);
+
+                if (row.workflow_id) {
+                    const { data: workflow } = await supabase
+                        .from('workflows')
+                        .select('*, preworks(id,prework_bridge_table(prework_default_reqs(name))), approvals(*), activations(*), postworks(*)')
+                        .eq('id', row.workflow_id)
+                        .single();
+
+                    if (workflow) {
+                        const phaseOps: Promise<any>[] = [];
+
+                        const preChecklist = workflow.preworks?.prework_bridge_table?.map((item: any) => ({
+                            text: item.prework_default_reqs?.name || 'Requirement',
+                            details: '',
+                            done: false
+                        })) || [];
+                        if (preChecklist.length > 0) {
+                            phaseOps.push(
+                                supabase.from('contract_preworks').insert({ contract_id: contractId, checklist: preChecklist })
+                            );
+                        }
+
+                        let rawChecklist = workflow.approvals?.checklist;
+                        const appStages = Array.isArray(rawChecklist) ? rawChecklist : (rawChecklist?.stages || []);
+                        if (appStages.length > 0) {
+                            phaseOps.push(
+                                supabase.from('contract_approvals').insert({ contract_id: contractId, checklist: { stages: appStages } })
+                            );
+                        }
+
+                        const actParties = workflow.activations?.parties || [];
+                        if (actParties.length > 0) {
+                            phaseOps.push(
+                                supabase.from('contract_activations').insert({ contract_id: contractId, parties: actParties })
+                            );
+                        }
+
+                        let rawPost = workflow.postworks?.checklist;
+                        const milestones = Array.isArray(rawPost) ? rawPost : (rawPost?.milestones || []);
+                        if (milestones.length > 0) {
+                            phaseOps.push(
+                                supabase.from('contract_postworks').insert({ contract_id: contractId, checklist: { milestones } })
+                            );
+                        }
+
+                        await Promise.all(phaseOps);
+                    }
+                }
+
+                if (row.files.length > 0) {
+                    const matchedFiles = csvAttachmentFiles.filter(af => row.files.includes(af.name));
+                    if (matchedFiles.length > 0) {
+                        const urls = await uploadFiles(contractId, matchedFiles);
+                        await saveFileRecords('prework', contractId, urls);
+                    }
+                }
+
+                imported++;
+            }
+
+            csvResult = `Imported ${imported} contract(s) successfully.`;
+            if (rowErrors.length > 0) {
+                csvResult += ` ${rowErrors.length} row(s) had errors and were skipped.`;
+            }
+            csvResultType = imported > 0 ? 'success' : 'error';
+
+            if (imported > 0) {
+                await invalidateAll();
+            }
+
+            csvStep = 'result';
+        } catch (err: any) {
+            console.error('CSV import failed:', err);
+
+            if (csvCreatedIds.length > 0) {
+                try {
+                    for (const cid of csvCreatedIds) {
+                        await Promise.all([
+                            supabase.from('contract_preworks').delete().eq('contract_id', cid),
+                            supabase.from('contract_approvals').delete().eq('contract_id', cid),
+                            supabase.from('contract_activations').delete().eq('contract_id', cid),
+                            supabase.from('contract_postworks').delete().eq('contract_id', cid),
+                        ]);
+
+                        const { data: fileRecords } = await supabase
+                            .from('stage_files')
+                            .select('file_url')
+                            .eq('stage_id', cid);
+                        if (fileRecords) {
+                            for (const fr of fileRecords) {
+                                try { await deleteFile('prework', cid, fr.file_url); } catch { }
+                            }
+                        }
+                    }
+
+                    await supabase.from('contracts').delete().in('id', csvCreatedIds);
+                    csvRolledBack = true;
+                } catch (rollbackErr) {
+                    console.error('Rollback failed:', rollbackErr);
                 }
             }
 
-            csvResult = `Imported ${imported} contract(s) successfully${errors > 0 ? ` (${errors} errors)` : ''}.`;
-            if (imported > 0) {
-                await invalidateAll();
-                csvFile = null;
-            }
-        } catch (err) {
-            console.error("CSV import error:", err);
-            csvResult = "Failed to parse CSV file.";
+            csvResult = `${err.message || 'Import failed.'} ${csvRolledBack ? 'All changes rolled back.' : 'Some contracts may be partially created.'}`;
+            csvResultType = 'error';
+            csvStep = 'result';
         } finally {
             csvImporting = false;
         }
+    }
+
+    function resetCsvModal() {
+        showCsvModal = false;
+        csvStep = 'upload';
+        csvFile = null;
+        csvAttachmentFiles = [];
+        csvParsedRows = [];
+        csvImporting = false;
+        csvResult = '';
+        csvResultType = '';
+        csvCreatedIds = [];
+        csvRolledBack = false;
     }
 
     function formatDate(dateString: string) {
@@ -637,41 +844,132 @@
 
 <!-- CSV Import Modal -->
 {#if showCsvModal}
-    <div class="modal-overlay">
-        <div class="modal-content">
-            <h3>Import Contracts from CSV</h3>
-            <p class="csv-help">
-                Upload a CSV file with at least a <strong>title</strong> column. 
-                Optional columns: <strong>type</strong>, <strong>status</strong>.
-            </p>
-            
-            <div class="csv-upload-zone">
-                <input type="file" accept=".csv" onchange={handleCsvFileSelect} id="csv-input" class="csv-input" />
-                <label for="csv-input" class="csv-label">
-                    {csvFile ? csvFile.name : 'Choose CSV file...'}
-                </label>
-            </div>
+    <div class="modal-overlay" onclick={() => { if (!csvImporting) resetCsvModal(); }}>
+        <div class="modal-content csv-modal-content" onclick={(e) => e.stopPropagation()}>
+            {#if csvStep === 'upload'}
+                <h3>Import Contracts from CSV</h3>
+                <p class="csv-help">
+                    Upload a CSV file with at least a <strong>title</strong> column.
+                    Optional columns: <strong>type</strong>, <strong>status</strong>, <strong>workflow_id</strong>, <strong>files</strong>.
+                </p>
 
-            {#if csvResult}
-                <p class="csv-result" class:csv-success={csvResult.includes('successfully')}>{csvResult}</p>
+                <div class="csv-upload-zone">
+                    <input type="file" accept=".csv" onchange={handleCsvFileSelect} id="csv-input" class="csv-input" />
+                    <label for="csv-input" class="csv-label">
+                        {csvFile ? csvFile.name : 'Choose CSV file...'}
+                    </label>
+                </div>
+
+                <div class="csv-attachment-section">
+                    <h4>Attachment Files</h4>
+                    <p class="csv-help">Upload files referenced in the <strong>files</strong> column (semicolon-separated filenames).</p>
+                    <input type="file" multiple onchange={handleAttachmentSelect} id="csv-attachment-input" class="csv-input" />
+                    <label for="csv-attachment-input" class="csv-label csv-attachment-label">
+                        {csvAttachmentFiles.length > 0 ? `${csvAttachmentFiles.length} file(s) selected` : 'Choose attachment files...'}
+                    </label>
+                    {#if csvAttachmentFiles.length > 0}
+                        <div class="csv-file-list">
+                            {#each csvAttachmentFiles as file, i}
+                                <div class="csv-file-item">
+                                    <span>{file.name}</span>
+                                    <button class="csv-file-remove" onclick={() => removeAttachmentFile(i)}>×</button>
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+
+                {#if csvResult}
+                    <p class="csv-result" class:csv-success={csvResultType === 'success'} class:csv-error={csvResultType === 'error'}>{csvResult}</p>
+                {/if}
+
+                <div class="modal-actions">
+                    <button class="btn-cancel" onclick={resetCsvModal} disabled={csvImporting}>Cancel</button>
+                    <button class="btn-confirm" onclick={parseAndPreview} disabled={!csvFile}>Preview</button>
+                </div>
+
+            {:else if csvStep === 'preview'}
+                <h3>Preview Import</h3>
+                <p class="csv-help">Review the parsed data below before importing.</p>
+
+                <div class="csv-preview-table-wrap">
+                    <table class="csv-preview-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Workflow</th>
+                                <th>Files</th>
+                                <th>Valid</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#each csvParsedRows as row}
+                                <tr class:csv-row-valid={row.valid} class:csv-row-invalid={!row.valid}>
+                                    <td>{row.index}</td>
+                                    <td>{row.title || '(empty)'}</td>
+                                    <td>{row.type}</td>
+                                    <td>{row.status}</td>
+                                    <td>{row.workflow_id ? row.workflow_id.slice(0, 8) + '...' : '—'}</td>
+                                    <td>{row.files.length > 0 ? row.files.join(', ') : '—'}</td>
+                                    <td>
+                                        {#if row.valid}
+                                            <span class="csv-badge csv-badge-ok">OK</span>
+                                        {:else}
+                                            <span class="csv-badge csv-badge-err" title={row.errors.join('; ')}>Error</span>
+                                        {/if}
+                                    </td>
+                                </tr>
+                            {/each}
+                        </tbody>
+                    </table>
+                </div>
+
+                {#if csvParsedRows.filter(r => !r.valid).length > 0}
+                    <div class="csv-preview-errors">
+                        <strong>Rows with errors:</strong>
+                        {#each csvParsedRows.filter(r => !r.valid) as row}
+                            <p class="csv-error-row">Row {row.index}: {row.errors.join('; ')}</p>
+                        {/each}
+                    </div>
+                {/if}
+
+                <div class="csv-summary">
+                    <span>{csvParsedRows.length} total rows, {csvParsedRows.filter(r => r.valid).length} valid, {csvParsedRows.filter(r => !r.valid).length} with errors</span>
+                </div>
+
+                {#if csvResult}
+                    <p class="csv-result" class:csv-success={csvResultType === 'success'} class:csv-error={csvResultType === 'error'}>{csvResult}</p>
+                {/if}
+
+                <div class="modal-actions">
+                    <button class="btn-cancel" onclick={() => csvStep = 'upload'} disabled={csvImporting}>Back</button>
+                    <button class="btn-confirm" onclick={importCsvFromPreview} disabled={csvImporting || csvParsedRows.filter(r => r.valid).length === 0}>
+                        {csvImporting ? 'Importing...' : `Import ${csvParsedRows.filter(r => r.valid).length} Contract(s)`}
+                    </button>
+                </div>
+
+            {:else if csvStep === 'result'}
+                <h3>Import Result</h3>
+
+                <div class="csv-result-display">
+                    {#if csvResultType === 'success'}
+                        <div class="csv-result-icon csv-result-success">✓</div>
+                    {:else}
+                        <div class="csv-result-icon csv-result-fail">✗</div>
+                    {/if}
+                    <p class="csv-result-message">{csvResult}</p>
+                    {#if csvRolledBack}
+                        <p class="csv-rollback-note">All changes were rolled back successfully.</p>
+                    {/if}
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn-confirm" onclick={resetCsvModal}>Close</button>
+                </div>
             {/if}
-
-            <div class="modal-actions">
-                <button 
-                    class="btn-cancel" 
-                    onclick={() => { showCsvModal = false; csvFile = null; csvResult = ""; }} 
-                    disabled={csvImporting}
-                >
-                    Cancel
-                </button>
-                <button 
-                    class="btn-confirm" 
-                    onclick={importCsv} 
-                    disabled={!csvFile || csvImporting}
-                >
-                    {csvImporting ? 'Importing...' : 'Import CSV'}
-                </button>
-            </div>
         </div>
     </div>
 {/if}
@@ -999,6 +1297,45 @@
     }
     .csv-btn:hover { background-color: #02451C; }
 
+    .csv-modal-content { width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto; text-align: left; }
+    .csv-modal-content h3 { text-align: center; margin-bottom: 12px; }
+    .csv-modal-content h4 { font-size: 0.95rem; color: #374151; margin: 16px 0 6px; }
+
+    .csv-attachment-section { margin-bottom: 12px; }
+    .csv-attachment-label { border-color: #93c5fd !important; }
+    .csv-file-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; }
+    .csv-file-item { display: flex; justify-content: space-between; align-items: center; background: #f3f4f6; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; }
+    .csv-file-remove { background: none; border: none; cursor: pointer; font-size: 1.1rem; color: #dc2626; padding: 0 4px; }
+    .csv-file-remove:hover { color: #b91c1c; }
+
+    .csv-preview-table-wrap { max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; margin: 12px 0; }
+    .csv-preview-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .csv-preview-table th { background: #7B1113; color: white; padding: 8px 10px; font-size: 0.8rem; position: sticky; top: 0; }
+    .csv-preview-table td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; text-align: center; }
+    .csv-preview-table tbody tr:hover { background: #f9fafb; }
+    .csv-row-invalid { background: #fef2f2; }
+    .csv-row-valid { background: #ffffff; }
+
+    .csv-preview-errors { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; margin: 8px 0; font-size: 0.85rem; color: #b91c1c; }
+    .csv-error-row { margin: 4px 0; }
+
+    .csv-summary { text-align: center; font-size: 0.85rem; color: #6b7280; padding: 8px; background: #f9fafb; border-radius: 8px; margin: 8px 0; }
+
+    .csv-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+    .csv-badge-ok { background: #d1fae5; color: #065f46; }
+    .csv-badge-err { background: #fef2f2; color: #b91c1c; cursor: help; }
+
+    .csv-result-display { text-align: center; padding: 20px 0; }
+    .csv-result-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 1.4rem; font-weight: bold; }
+    .csv-result-success { background: #d1fae5; color: #065f46; }
+    .csv-result-fail { background: #fef2f2; color: #b91c1c; }
+    .csv-result-message { font-size: 0.95rem; color: #374151; margin-bottom: 8px; }
+    .csv-rollback-note { font-size: 0.85rem; color: #6b7280; font-style: italic; }
+
+    .csv-result { font-size: 0.9rem; padding: 8px; border-radius: 6px; margin: 8px 0; }
+    .csv-success { color: #035a24; background: #e6f4ea; }
+    .csv-error { color: #b91c1c; background: #fef2f2; }
+
     .create-btn {
         background-color: #035a24; color: white; text-decoration: none;
     }
@@ -1022,8 +1359,8 @@
     }
     .btn-danger:hover:not(:disabled) { background: #b91c1c; }
 
-    .csv-help { font-size: 0.9rem; color: #6b7280; margin-bottom: 16px; line-height: 1.5; }
-    .csv-upload-zone { margin-bottom: 16px; }
+    .csv-help { font-size: 0.9rem; color: #6b7280; margin-bottom: 12px; line-height: 1.5; }
+    .csv-upload-zone { margin-bottom: 12px; }
     .csv-input { display: none; }
     .csv-label {
         display: block; padding: 12px; border: 2px dashed #d1d5db;
@@ -1031,8 +1368,6 @@
         color: #4b5563; font-size: 0.9rem; transition: border-color 0.2s;
     }
     .csv-label:hover { border-color: #035a24; }
-    .csv-result { font-size: 0.9rem; padding: 8px; border-radius: 6px; margin-bottom: 12px; }
-    .csv-success { color: #035a24; background: #e6f4ea; }
 
     .contract-link {
         color: #02461C;
