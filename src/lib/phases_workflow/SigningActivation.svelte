@@ -2,7 +2,6 @@
 	import { fly } from 'svelte/transition';
 	import { createEventDispatcher } from "svelte";
 	import { supabase } from "$lib/supabaseInit";
-	import { uploadFiles, saveFileRecords, loadFiles, deleteFile } from '$lib/fileService';
 
 	let { activationId } = $props();
 
@@ -12,8 +11,6 @@
 	let isSaving = $state(false);
 	let isLoading = $state(true);
 	let showConfirmModal = $state(false);
-	let newFiles = $state<File[]>([]);
-	let existingFiles = $state<string[]>([]);
 
 	const dispatch = createEventDispatcher();
 
@@ -29,10 +26,6 @@
 		}
 
 		loadParties(activationId);
-
-		loadFiles('activation', activationId).then(files => {
-			existingFiles = Array.from(new Set(files));
-		});
 	});
 
 	async function loadParties(currentId: string) {
@@ -76,12 +69,6 @@
 		}
 
 		try {
-
-			const uploadedUrls = await uploadFiles (activationId, newFiles);
-			if (uploadedUrls.length > 0) {
-				await saveFileRecords('activation', activationId, uploadedUrls);
-			}
-
 			const validParties = parties.filter(p => p.name.trim() !== "");
 			
 			const pureJsonParties = JSON.parse(JSON.stringify(validParties));
@@ -92,7 +79,6 @@
 				.eq('id', activationId);
 
 			if (error) throw error;
-			newFiles = [];
 
 			showConfirmModal = false;
 			dispatch("next");
@@ -105,35 +91,6 @@
 		}
 	}
 
-function handleFileSelect(event: Event) {
-	const input = event.target as HTMLInputElement;
-	if (input.files) {
-		newFiles = [...newFiles, ...Array.from(input.files)];
-	}
-}
-
-function handleDrop(event: DragEvent) {
-	event.preventDefault();
-	if (event.dataTransfer?.files) {
-		newFiles = [...newFiles, ...Array.from(event.dataTransfer.files)];
-	}
-}
-
-function handleDragOver(event: DragEvent) {
-	event.preventDefault();
-}
-
-function removeFile(index: number) {
-	newFiles = newFiles.filter((_, i) => i !== index);
-}
-
-async function handleDelete(index: number) {
-	const url = existingFiles[index];
-
-	await deleteFile('activation', activationId, url);
-
-	existingFiles = existingFiles.filter((_, i) => i !== index);
-}
 </script>
 
 <div class="phase-container">
@@ -171,70 +128,6 @@ async function handleDelete(index: number) {
 			</button>
 		{/if}
 	</div>
-
-	<div class="upload-section">
-	<div class="upload-header">
-		<h3>Add Default Files</h3>
-	</div>
-
-	<input 
-		type="file" 
-		multiple 
-		class="hidden-file-input" 
-		onchange={handleFileSelect} 
-	/>
-
-	<div 
-		class="drop-zone"
-		role="button"
-		tabindex="0"
-		ondrop={handleDrop}
-		ondragover={handleDragOver}
-		onclick={() => (document.querySelector('.hidden-file-input') as HTMLInputElement)?.click()}
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				(document.querySelector('.hidden-file-input') as HTMLInputElement)?.click();
-			}
-		}}
-	>
-		<p>
-			<button 
-				type="button"
-				class="blue-text"
-				onclick={(e) => {
-					e.stopPropagation();
-					(document.querySelector('.hidden-file-input') as HTMLInputElement)?.click();
-				}}
-			>
-				Choose file
-			</button>
-			to upload
-		</p>
-	</div>
-
-{#each existingFiles as url, i}
-<div class="file-item">
-	<a href={url} target="_blank">
-		{url.split('/').pop()}
-	</a>
-	<button onclick={() => handleDelete(i)}>×</button>
-</div>
-{/each}
-
-{#each newFiles as file, i}
-<div class="file-item">
-	<a 
-		href={URL.createObjectURL(file)} 
-		target="_blank" 
-		rel="noopener noreferrer"
-	>
-		{file.name}
-	</a>
-	<button onclick={() => removeFile(i)}>×</button>
-</div>
-{/each}
-
-</div>
 
 	<!-- FOOTER NAVIGATION -->
 	<div class="pagenav">
@@ -349,16 +242,6 @@ async function handleDelete(index: number) {
 		width: fit-content;
 	}
 
-	.upload-header { display: flex; justify-content: space-between; align-items: flex-start; }
-
-	.drop-zone {
-		border: 1px dashed #d1d5db; border-radius: 12px;
-		padding: 30px; text-align: center; background: #f9fafb;
-		margin-bottom: 15px;
-	}
-
-	.blue-text { color: #3b00ff; font-weight: bold; cursor: pointer; }
-
 	.cancel-button { background: white; border: 1px solid #e5e7eb; padding: 10px 30px; border-radius: 8px; cursor: pointer; }
 	.import-button { background: #3b00ff; color: white; border: none; padding: 10px 35px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
@@ -398,28 +281,4 @@ async function handleDelete(index: number) {
     .modal-content p { color: #4b5563; margin-bottom: 25px; line-height: 1.5; }
     .modal-actions { display: flex; justify-content: center; gap: 15px; }
 
-	.hidden-file-input {
-	display: none;
-}
-
-.file-item {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	background: #f3f4f6;
-	padding: 8px 12px;
-	border-radius: 6px;
-	margin-bottom: 8px;
-	font-size: 0.9rem;
-}
-
-.blue-text {
-	background: none;
-	border: none;
-	padding: 0;
-	font: inherit;
-	color: #3b00ff;
-	font-weight: bold;
-	cursor: pointer;
-}
 </style>

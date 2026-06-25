@@ -2,7 +2,6 @@
 	import { fly } from 'svelte/transition';
 	import { createEventDispatcher } from "svelte";
 	import { supabase } from "$lib/supabaseInit";
-	import { uploadFiles, saveFileRecords, loadFiles, deleteFile } from '$lib/fileService';
 
 	let { approvalId } = $props();
 
@@ -13,8 +12,6 @@
 	let isSaving = $state(false);
 	let isLoading = $state(true);
 	let showConfirmModal = $state(false);
-	let newFiles = $state<File[]>([]);
-	let existingFiles = $state<string[]>([]);
 
 	const dispatch = createEventDispatcher();
 
@@ -33,9 +30,6 @@
 		}
 
 		loadChecklist(approvalId)
-		loadFiles('approval', approvalId).then(files => {
-			existingFiles = Array.from(new Set(files));
-		})
     });
 
 	async function loadChecklist(currentId: string) {
@@ -98,13 +92,6 @@
 		}
 		
 		try {
-
-			const uploadedUrls = await uploadFiles(approvalId, newFiles);
-			
-			if (uploadedUrls.length > 0){
-				await saveFileRecords('approval', approvalId, uploadedUrls);
-			}
-
 			// remove completely blank stages, and remove blank items inside valid stages
 			const validStages = stages
 				.filter(stage => stage.name.trim() !== "")
@@ -122,7 +109,6 @@
 				.eq('id', approvalId);
 
 			if (error) throw error;
-			newFiles = [];
 
 			showConfirmModal = false;
 			dispatch("next");
@@ -135,35 +121,6 @@
 		}
 	}
 
-function handleFileSelect(event: Event) {
-	const input = event.target as HTMLInputElement;
-	if (input.files) {
-		newFiles = [...newFiles, ...Array.from(input.files)];
-	}
-}
-
-async function handleDelete(index: number) {
-    const url = existingFiles[index];
-
-    await deleteFile('approval', approvalId, url);
-
-    existingFiles = existingFiles.filter((_, i) => i !== index);
-}
-
-function handleDrop(event: DragEvent) {
-	event.preventDefault();
-	if (event.dataTransfer?.files) {
-		newFiles = [...newFiles, ...Array.from(event.dataTransfer.files)];
-	}
-}
-
-function handleDragOver(event: DragEvent) {
-	event.preventDefault();
-}
-
-function removeFile(index: number) {
-	newFiles = newFiles.filter((_, i) => i !== index);
-}
 </script>
 
 <div class="phase-container">
@@ -221,62 +178,6 @@ function removeFile(index: number) {
 		{/if}
 	</div>
 
-	<!-- FILE UPLOAD -->
-	<div class="upload-section">
-	<div class="upload-header">
-		<h3>Add Default Files</h3>
-	</div>
-
-	<input 
-		type="file" 
-		multiple 
-		class="hidden-file-input" 
-		onchange={handleFileSelect} 
-	/>
-
-	<div 
-		class="drop-zone"
-		role="button"
-		tabindex="0"
-		ondrop={handleDrop}
-		ondragover={handleDragOver}
-		onclick={() => (document.querySelector('.hidden-file-input') as HTMLInputElement)?.click()}
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				(document.querySelector('.hidden-file-input') as HTMLInputElement)?.click();
-			}
-		}}
-	>
-		<p>
-			<button 
-				type="button"
-				class="blue-text"
-				onclick={(e) => {
-					e.stopPropagation();
-					(document.querySelector('.hidden-file-input') as HTMLInputElement)?.click();
-				}}
-			>
-				Choose file
-			</button>
-			to upload
-		</p>
-	</div>
-
-	{#each existingFiles as url, i}
-    <div class="file-item">
-        <a href={url} target="_blank">{url.split('/').pop()}</a>
-        <button onclick={() => handleDelete(i)}>×</button>
-    </div>
-	{/each}
-	
-	{#each newFiles as file, i}
-    <div class="file-item">
-        <a href={URL.createObjectURL(file)} target="_blank">{file.name}</a>
-        <button onclick={() => newFiles = newFiles.filter((_, j) => j !== i)}>×</button>
-	</div>
-	{/each}
-</div>
-
 	<div class="pagenav">
 		<button class="back" onclick={handleBack} disabled={isLoading || isSaving}>
 		Return to <br/> Prework
@@ -313,12 +214,6 @@ function removeFile(index: number) {
 		gap: 60px;
 		font-family: sans-serif;
 	}
-	.upload-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-	}
-
 	h3 {
 		font-size: 1rem;
 		margin-bottom: 20px;
@@ -407,15 +302,6 @@ function removeFile(index: number) {
 		font-weight: bold;
 		cursor: pointer;
 		width: fit-content;
-	}
-
-	.drop-zone {
-		border: 1px dashed #d1d5db;
-		background-color: #f9fafb;
-		border-radius: 12px;
-		padding: 30px;
-		text-align: center;
-		margin-bottom: 15px;
 	}
 
 	.cancel-button {
@@ -510,29 +396,4 @@ function removeFile(index: number) {
         gap: 15px;
     }
 
-	.hidden-file-input {
-	display: none;
-}
-
-
-.file-item {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	background: #f3f4f6;
-	padding: 8px 12px;
-	border-radius: 6px;
-	margin-bottom: 8px;
-	font-size: 0.9rem;
-}
-
-.blue-text {
-	background: none;
-	border: none;
-	padding: 0;
-	font: inherit;
-	color: #3b00ff;
-	font-weight: bold;
-	cursor: pointer;
-}
 </style>
