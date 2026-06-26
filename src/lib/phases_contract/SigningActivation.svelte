@@ -7,7 +7,7 @@
     interface Props { data: any; stageId?: string; }
     let { data = $bindable(), stageId = "" }: Props = $props();
 
-    type Party = { name: string; done: boolean };
+    type Party = { name: string; done: boolean; isCustom?: boolean };
 	
     let parties = $state<Party[]>(
         $contractStore.activation.parties.length

@@ -29,9 +29,9 @@
     let contractData = $state({
         id: null as string | null,
         title: ContractName,
-        prework: { checklist: [] as any },
-        approval: { checklist: [] as any },
-        activation: { parties: [] as any },
+        prework: { checklist: [] as any, files: [] as any },
+        approval: { checklist: [] as any, files: [] as any },
+        activation: { parties: [] as any, files: [] as any },
         postwork: { 
             checklist: [] as any,
             milestones: [] as any,
@@ -126,9 +126,9 @@
         contractData = {
             id: contractId,
             title: selectedContract.title,
-            prework: { checklist: preChecklist },
-            approval: { checklist: appChecklist },
-            activation: { parties: actParties },
+            prework: { checklist: preChecklist, files: [] },
+            approval: { checklist: appChecklist, files: [] },
+            activation: { parties: actParties, files: [] },
             postwork: { 
                 checklist: postChecklist,
                 milestones: postChecklist,

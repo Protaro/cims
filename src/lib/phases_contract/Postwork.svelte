@@ -6,7 +6,7 @@
     interface Props { data: any; onComplete?: () => void; }
     let { data = $bindable(), onComplete }: Props = $props();
 
-    type Milestone = { text: string; done: boolean };
+    type Milestone = { text: string; done: boolean; isCustom?: boolean };
 
     let milestones = $state<Milestone[]>(
         data.milestones?.length 

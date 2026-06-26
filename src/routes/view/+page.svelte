@@ -4,10 +4,11 @@
     import { flip } from 'svelte/animate';
     import { goto, invalidateAll } from '$app/navigation';
     import { page } from '$app/stores';
-    import { ChevronDown, Trash2, Upload, FilePlusCorner } from 'lucide-svelte';
+    import { ChevronDown, Trash2, Upload, Download, FilePlusCorner } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
     import { parseCsv } from '$lib/csvParser';
     import { uploadFiles, saveFileRecords, deleteFile } from '$lib/fileService';
+    import * as XLSX from 'xlsx';
 
     let { data } = $props();
     let { access, contracts, users, session_id} = $derived(data); 
@@ -31,6 +32,9 @@
     let csvResultType = $state<'success' | 'error' | ''>('');
     let csvCreatedIds = $state<string[]>([]);
     let csvRolledBack = $state(false);
+
+    let showExportModal = $state(false);
+    let exportFormat = $state<'csv' | 'xlsx'>('csv');
 
     const VALID_STATUSES = ['Active', 'On Hold', 'Completed', 'Terminated'];
     const MAX_CSV_SIZE = 5 * 1024 * 1024;
@@ -312,7 +316,7 @@
         if (input.files && input.files[0]) {
             const file = input.files[0];
             if (file.size > MAX_CSV_SIZE) {
-                csvResult = `CSV file exceeds ${MAX_CSV_SIZE / 1024 / 1024}MB limit.`;
+                csvResult = `File exceeds ${MAX_CSV_SIZE / 1024 / 1024}MB limit.`;
                 csvResultType = 'error';
                 return;
             }
@@ -348,18 +352,38 @@
         csvResultType = '';
 
         try {
-            const text = await csvFile.text();
-            const { headers, rows } = parseCsv(text);
+            let headers: string[];
+            let rows: string[][];
+
+            if (csvFile.name.endsWith('.xlsx')) {
+                const data = await csvFile.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                if (jsonData.length < 2) {
+                    csvResult = 'XLSX file appears empty or invalid.';
+                    csvResultType = 'error';
+                    return;
+                }
+                headers = jsonData[0].map((h: any) => String(h).toLowerCase());
+                rows = jsonData.slice(1).filter((r: any[]) => r.some((f: any) => f !== undefined && f !== null && String(f).trim() !== ''))
+                    .map((r: any[]) => r.map((f: any) => f !== undefined && f !== null ? String(f) : ''));
+            } else {
+                const text = await csvFile.text();
+                const parsed = parseCsv(text);
+                headers = parsed.headers;
+                rows = parsed.rows;
+            }
 
             if (headers.length === 0) {
-                csvResult = 'CSV file appears empty or invalid.';
+                csvResult = 'File appears empty or invalid.';
                 csvResultType = 'error';
                 return;
             }
 
             const titleIdx = headers.indexOf('title');
             if (titleIdx === -1) {
-                csvResult = "CSV must have a 'title' column.";
+                csvResult = "File must have a 'title' column.";
                 csvResultType = 'error';
                 return;
             }
@@ -370,7 +394,7 @@
             const filesIdx = headers.indexOf('files');
 
             if (rows.length === 0) {
-                csvResult = 'CSV has no data rows.';
+                csvResult = 'File has no data rows.';
                 csvResultType = 'error';
                 return;
             }
@@ -410,7 +434,7 @@
             csvStep = 'preview';
         } catch (err) {
             console.error('CSV parse error:', err);
-            csvResult = 'Failed to parse CSV. Ensure it is a valid file.';
+            csvResult = 'Failed to parse file. Ensure it is a valid CSV or XLSX file.';
             csvResultType = 'error';
         }
     }
@@ -471,7 +495,7 @@
                         })) || [];
                         if (preChecklist.length > 0) {
                             phaseOps.push(
-                                supabase.from('contract_preworks').insert({ contract_id: contractId, checklist: preChecklist })
+                                (async () => { await supabase.from('contract_preworks').insert({ contract_id: contractId, checklist: preChecklist }); })()
                             );
                         }
 
@@ -479,14 +503,14 @@
                         const appStages = Array.isArray(rawChecklist) ? rawChecklist : (rawChecklist?.stages || []);
                         if (appStages.length > 0) {
                             phaseOps.push(
-                                supabase.from('contract_approvals').insert({ contract_id: contractId, checklist: { stages: appStages } })
+                                (async () => { await supabase.from('contract_approvals').insert({ contract_id: contractId, checklist: { stages: appStages } }); })()
                             );
                         }
 
                         const actParties = workflow.activations?.parties || [];
                         if (actParties.length > 0) {
                             phaseOps.push(
-                                supabase.from('contract_activations').insert({ contract_id: contractId, parties: actParties })
+                                (async () => { await supabase.from('contract_activations').insert({ contract_id: contractId, parties: actParties }); })()
                             );
                         }
 
@@ -494,7 +518,7 @@
                         const milestones = Array.isArray(rawPost) ? rawPost : (rawPost?.milestones || []);
                         if (milestones.length > 0) {
                             phaseOps.push(
-                                supabase.from('contract_postworks').insert({ contract_id: contractId, checklist: { milestones } })
+                                (async () => { await supabase.from('contract_postworks').insert({ contract_id: contractId, checklist: { milestones } }); })()
                             );
                         }
 
@@ -574,6 +598,53 @@
         csvResultType = '';
         csvCreatedIds = [];
         csvRolledBack = false;
+    }
+
+    function confirmExport() {
+        showExportModal = true;
+    }
+
+    function doExport() {
+        const data = visibleContracts.map((c: any) => ({
+            Title: c.title || '',
+            Type: c.type || '',
+            Status: c.status || '',
+            'Created On': formatDate(c.created_at),
+            'Last Modified': formatDate(c.last_modified),
+        }));
+
+        if (exportFormat === 'xlsx') {
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Contracts');
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `contracts_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } else {
+            const headers = ['Title', 'Type', 'Status', 'Created On', 'Last Modified'];
+            const rows = visibleContracts.map((c: any) => [
+                `"${(c.title || '').replace(/"/g, '""')}"`,
+                c.type || '',
+                c.status || '',
+                formatDate(c.created_at),
+                formatDate(c.last_modified),
+            ]);
+            const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `contracts_export_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        showExportModal = false;
     }
 
     function formatDate(dateString: string) {
@@ -675,7 +746,12 @@
 
             <button class="action-btn csv-btn" onclick={() => showCsvModal = true}>
                 <Upload size={16} strokeWidth={2.5} />
-                <span>Import CSV</span>
+                <span>Import List</span>
+            </button>
+
+            <button class="action-btn export-btn" onclick={confirmExport}>
+                <Download size={16} strokeWidth={2.5} />
+                <span>Export List</span>
             </button>
 
             <a href="/create-contract" class="action-btn create-btn">
@@ -882,14 +958,14 @@
     <div class="modal-overlay" onclick={() => { if (!csvImporting) resetCsvModal(); }}>
         <div class="modal-content csv-modal-content" onclick={(e) => e.stopPropagation()}>
             {#if csvStep === 'upload'}
-                <h3>Import Contracts from CSV</h3>
+                <h3>Import Contracts</h3>
                 <p class="csv-help">
-                    Upload a CSV file with at least a <strong>title</strong> column.
+                    Upload a CSV or XLSX file with at least a <strong>title</strong> column.
                     Optional columns: <strong>type</strong>, <strong>status</strong>, <strong>workflow_id</strong>, <strong>files</strong>.
                 </p>
 
                 <div class="csv-upload-zone">
-                    <input type="file" accept=".csv" onchange={handleCsvFileSelect} id="csv-input" class="csv-input" />
+                    <input type="file" accept=".csv,.xlsx" onchange={handleCsvFileSelect} id="csv-input" class="csv-input" />
                     <label for="csv-input" class="csv-label">
                         {csvFile ? csvFile.name : 'Choose CSV file...'}
                     </label>
@@ -1005,6 +1081,31 @@
                     <button class="btn-confirm" onclick={resetCsvModal}>Close</button>
                 </div>
             {/if}
+        </div>
+    </div>
+{/if}
+
+{#if showExportModal}
+    <div class="modal-overlay" onclick={() => showExportModal = false}>
+        <div class="modal-content csv-modal-content" onclick={(e) => e.stopPropagation()}>
+            <h3>Export Contract List</h3>
+            <p class="csv-help">Choose a format to export the {visibleContracts.length} currently displayed contract(s).</p>
+            <div class="export-options">
+                <label class="export-option" class:export-option-active={exportFormat === 'csv'}>
+                    <input type="radio" name="exportFormat" value="csv" bind:group={exportFormat} />
+                    <span class="export-option-label">CSV (.csv)</span>
+                    <span class="export-option-desc">Comma-separated values, compatible with Excel and Google Sheets</span>
+                </label>
+                <label class="export-option" class:export-option-active={exportFormat === 'xlsx'}>
+                    <input type="radio" name="exportFormat" value="xlsx" bind:group={exportFormat} />
+                    <span class="export-option-label">Excel (.xlsx)</span>
+                    <span class="export-option-desc">Microsoft Excel workbook format</span>
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick={() => showExportModal = false}>Cancel</button>
+                <button class="btn-confirm" onclick={doExport}>Export</button>
+            </div>
         </div>
     </div>
 {/if}
@@ -1328,9 +1429,14 @@
     .action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .csv-btn {
-        background-color: #035a24; color: white;
+        background-color: #e8a317; color: white;
     }
-    .csv-btn:hover { background-color: #02451C; }
+    .csv-btn:hover { background-color: #c48b12; }
+
+    .export-btn {
+        background-color: #1a73e8; color: white;
+    }
+    .export-btn:hover { background-color: #1557b0; }
 
     .csv-modal-content { width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto; text-align: left; }
     .csv-modal-content h3 { text-align: center; margin-bottom: 12px; }
@@ -1525,6 +1631,48 @@
     .btn-cancel:disabled {
         opacity: 0.6;
         cursor: not-allowed;
+    }
+
+    .export-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 16px;
+    }
+
+    .export-option {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 14px 16px;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .export-option:hover {
+        border-color: #93c5fd;
+    }
+
+    .export-option-active {
+        border-color: #7B1113;
+        background: #fff0f0;
+    }
+
+    .export-option input[type="radio"] {
+        display: none;
+    }
+
+    .export-option-label {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #111827;
+    }
+
+    .export-option-desc {
+        font-size: 0.8rem;
+        color: #6b7280;
     }
 
     @media (max-width: 768px) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { page } from '$app/stores';
     import WorkflowMainPanel from "./WorkflowMainPanel.svelte";
     import { enhance } from '$app/forms';
     import { Pencil, Check, Plus, Trash2, ChevronDown } from 'lucide-svelte';
@@ -6,7 +7,10 @@
     let {data, form} = $props();
     let {access, workflows} = $derived(data);
 
-    let activeWorkflow = $state(workflows[0]);
+    let selectedId = $derived($page.url.searchParams.get('selected'));
+    let activeWorkflow = $state(
+        (selectedId && workflows.find((w: any) => w.id === selectedId)) || workflows[0]
+    );
     let activeWorkflowId = $derived(activeWorkflow?.id);
     let displayedWorkflowName = $state(activeWorkflow?.name || '');
 

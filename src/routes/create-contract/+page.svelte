@@ -1,6 +1,6 @@
 <script lang="ts">
     import CreateContractMainPanel from "./CreateContractMainPanel.svelte";
-    import { Pencil, Check, Save, Search, X } from 'lucide-svelte';
+    import { Pencil, Check, Save, Search, X, Loader2 } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
     import { uploadFiles, saveFileRecords } from '$lib/fileService';
 
@@ -97,9 +97,9 @@
             id: null,
             title: ContractName, 
             workflow_id: selectedWorkflowId,
-            prework: { checklist: preChecklist },
-            approval: { checklist: appChecklist },
-            activation: { parties: actParties },
+            prework: { checklist: preChecklist, files: [] },
+            approval: { checklist: appChecklist, files: [] },
+            activation: { parties: actParties, files: [] },
             postwork: { 
                 checklist: postChecklist,
                 milestones: postChecklist,
@@ -120,10 +120,11 @@
     let isLoadingTemplate = $state(false);
     let contractData = $state({
         id: null as string | null,
+        title: "",
         workflow_id: "",
-        prework: { checklist: [] as any },
-        approval: { checklist:[] as any },
-        activation: { parties: [] as any },
+        prework: { checklist: [] as any, files: [] as any },
+        approval: { checklist:[] as any, files: [] as any },
+        activation: { parties: [] as any, files: [] as any },
         postwork: { 
             checklist:[] as any,
             milestones:[],
@@ -148,8 +149,85 @@
     }
 
     async function navigateToWorkflow() {
+        const confirmed = window.confirm('Would you like to create a new workflow template based on this contract? The contract will be saved first.');
+        if (!confirmed) return;
+
         await saveContractToDB(true);
-        goto('/workflow');
+
+        try {
+            const { data: prework, error: preworkErr } = await supabase
+                .from('preworks')
+                .insert({})
+                .select()
+                .single();
+            if (preworkErr) throw preworkErr;
+
+            if (contractData.prework?.checklist?.length > 0) {
+                for (const item of contractData.prework.checklist) {
+                    const { data: req, error: reqErr } = await supabase
+                        .from('prework_default_reqs')
+                        .insert({ name: item.text, type: "String" })
+                        .select()
+                        .single();
+                    if (reqErr) {
+                        console.error('Failed to insert default req:', reqErr);
+                        continue;
+                    }
+                    const { error: bridgeErr } = await supabase
+                        .from('prework_bridge_table')
+                        .insert({ prework_id: prework.id, req_id: req.id });
+                    if (bridgeErr) {
+                        console.error('Failed to insert bridge entry:', bridgeErr);
+                    }
+                }
+            }
+
+            const { data: approval, error: approvalErr } = await supabase
+                .from('approvals')
+                .insert({ checklist: contractData.approval?.checklist || [] })
+                .select()
+                .single();
+            if (approvalErr) throw approvalErr;
+
+            const { data: activation, error: activationErr } = await supabase
+                .from('activations')
+                .insert({ parties: contractData.activation?.parties || [] })
+                .select()
+                .single();
+            if (activationErr) throw activationErr;
+
+            const postworkChecklist = {
+                milestones: contractData.postwork?.milestones || [],
+                termination: {
+                    type: contractData.postwork?.terminationType || "",
+                    reason: contractData.postwork?.reason || ""
+                }
+            };
+            const { data: postwork, error: postworkErr } = await supabase
+                .from('postworks')
+                .insert({ checklist: postworkChecklist })
+                .select()
+                .single();
+            if (postworkErr) throw postworkErr;
+
+            const { data: newWorkflow, error: wfError } = await supabase
+                .from('workflows')
+                .insert({
+                    name: `${ContractName} Template`,
+                    prework: prework.id,
+                    approval: approval.id,
+                    activation: activation.id,
+                    postwork: postwork.id
+                })
+                .select()
+                .single();
+            if (wfError) throw wfError;
+
+            goto(`/workflow?selected=${newWorkflow.id}`, { invalidateAll: true });
+        } catch (err: any) {
+            console.error('Workflow creation failed:', err);
+            window.alert('Failed to create workflow: ' + (err.message || 'Unknown error'));
+        }
     }
 
     async function completeContract() {
@@ -400,7 +478,7 @@
                 </div>
                 <div class="stat-divider"></div>
                 <div class="stat-item">
-                    <span class="stat-value">{contractData.approval?.stages?.length || 0}</span>
+                    <span class="stat-value">{contractData.approval?.checklist?.length || 0}</span>
                     <span class="stat-label">Approval stages</span>
                 </div>
                 <div class="stat-divider"></div>

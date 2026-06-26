@@ -7,8 +7,8 @@
     interface Props { data: any; stageId?: string; }
     let { data = $bindable(), stageId = "" }: Props = $props();
 	
-    type ApprovalItem = { text: string; done: boolean };
-    type Stage = { name: string; items: ApprovalItem[] };
+    type ApprovalItem = { text: string; done: boolean; isCustom?: boolean };
+    type Stage = { name: string; items: ApprovalItem[]; isCustom?: boolean };
 	
     let stages = $state<Stage[]>(
         $contractStore.approval.stages.length > 0

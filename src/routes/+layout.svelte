@@ -50,7 +50,7 @@
             <span>Workflows</span>
         </a>
 
-        <a href="/view" class="nav-link" class:active={currentPath.startsWith('/view')}>
+        <a href="/view" class="nav-link" class:active={currentPath.startsWith('/view') || currentPath.startsWith('/create-contract') || currentPath.startsWith('/edit-contract')}>
             <TextSearch size={18} strokeWidth={2.5} />
             <span>Contracts</span>
         </a>
