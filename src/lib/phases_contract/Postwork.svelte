@@ -234,7 +234,7 @@
     .back:active  { transform: scale(0.97); }
 
     .complete-btn {
-        flex: 0.18;
+        flex: 0.14;
         background-color: #1a73e8;
         color: white;
         border: none;

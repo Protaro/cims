@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from "svelte";
     import { contractStore } from '$lib/contractdetail';
-    import { loadFiles, deleteFile } from '$lib/fileService';
+    import { loadFiles, deleteFile, getShortFileName } from '$lib/fileService';
     const dispatch = createEventDispatcher();
 
     interface Props { data: any; stageId?: string; }
@@ -50,7 +50,6 @@
         contractStore.update(s => ({ ...s, prework: { checklist } }));
     });
 
-    let showConfirmModal = $state(false);
     let isSaving = $state(false);
     let showError = $state(false);
     let errorMessage = $state("");
@@ -63,18 +62,13 @@
         checklist = checklist.filter((_, i) => i !== index);
     }
 
-    function validateBeforeConfirm() {
+    function handleNext() {
         const hasEmptyField = checklist.some(item => item.text.trim() === "");
         if (hasEmptyField) {
             errorMessage = "Checklist fields cannot be empty. Please fill in or remove empty fields.";
             showError = true;
             return;
         }
-        showConfirmModal = true;
-    }
-
-    function handleNext() {
-        showConfirmModal = false;
         dispatch("next");
     }
 
@@ -147,7 +141,7 @@
 
         {#each existingFiles as url, i}
         <div class="file-item">
-            <a href={url} target="_blank" rel="noopener noreferrer">{url.split('/').pop()}</a>
+            <a href={url} target="_blank" rel="noopener noreferrer">{getShortFileName(url)}</a>
             <button onclick={() => deleteExistingFile(i)}>×</button>
         </div>
         {/each}
@@ -161,7 +155,7 @@
 
     </div>
     <div class="pagenav">
-        <button class="next" onclick={validateBeforeConfirm}>Proceed to <br/> Approval and review</button>
+        <button class="next" onclick={handleNext}>Proceed to <br/> Approval and review</button>
     </div>
 
     {#if showError}
@@ -170,19 +164,6 @@
                 <h4>Action Required</h4>
                 <p>{errorMessage}</p>
                 <button class="modal-btn" onclick={() => showError = false}>OK</button>
-            </div>
-        </div>
-    {/if}
-
-    {#if showConfirmModal}
-        <div class="modal-overlay">
-            <div class="modal-content">
-                <h3>Confirmation</h3>
-                <p>Are you sure you want to save these requirements?</p>
-                <div class="modal-actions">
-                    <button class="cancel-button" onclick={() => showConfirmModal = false} disabled={isSaving}>Cancel</button>
-                    <button class="import-button" onclick={handleNext} disabled={isSaving}>Confirm & Proceed</button>
-                </div>
             </div>
         </div>
     {/if}

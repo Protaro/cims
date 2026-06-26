@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from "svelte";
     import { contractStore } from '$lib/contractdetail';
-    import { loadFiles, deleteFile } from '$lib/fileService';
+    import { loadFiles, deleteFile, getShortFileName } from '$lib/fileService';
     const dispatch = createEventDispatcher();
 
     interface Props { data: any; stageId?: string; }
@@ -41,7 +41,6 @@
 
     let showError = $state(false);
     let errorMessage = $state("");
-    let showConfirmModal = $state(false);
 	
     function addCustomParty() {
         customParties =[...customParties, { name: "New Party", done: false, isCustom: true }];
@@ -52,15 +51,6 @@
     }
 
     function handleNext() {
-        showConfirmModal = false;
-        dispatch("next");
-    }
-
-    function handleback() {
-        dispatch("back");
-    }
-
-    function validateBeforeConfirm() {
         const allParties = [...defaultParties, ...customParties];
 
         if (allParties.length === 0) {
@@ -76,7 +66,11 @@
             return;
         }
 
-        showConfirmModal = true;
+        dispatch("next");
+    }
+
+    function handleback() {
+        dispatch("back");
     }
 
     function handleFileSelect(event: Event) {
@@ -180,7 +174,7 @@
 
         {#each existingFiles as url, i}
         <div class="file-item">
-            <a href={url} target="_blank" rel="noopener noreferrer">{url.split('/').pop()}</a>
+            <a href={url} target="_blank" rel="noopener noreferrer">{getShortFileName(url)}</a>
             <button onclick={() => deleteExistingFile(i)}>×</button>
         </div>
         {/each}
@@ -196,7 +190,7 @@
 
     <div class="pagenav">
         <button class="back" onclick={handleback}>Return to <br/> Review and Approval</button>
-        <button class="next" onclick={validateBeforeConfirm}>Proceed to <br> Postwork </button>
+        <button class="next" onclick={handleNext}>Proceed to <br> Postwork </button>
     </div>
 </div>
 
@@ -211,34 +205,6 @@
         <button class="modal-btn" onclick={() => showError = false}>
             OK
         </button>
-    </div>
-</div>
-{/if}
-
-{#if showConfirmModal}
-<div class="modal-overlay">
-    <div class="modal-content">
-        <h3>Confirmation</h3>
-
-        <p>
-            Are you sure you want to save these parties?
-        </p>
-
-        <div class="modal-actions">
-            <button
-                class="cancel-button"
-                onclick={() => showConfirmModal = false}
-            >
-                Cancel
-            </button>
-
-            <button
-                class="import-button"
-                onclick={handleNext}
-            >
-                Confirm & Proceed
-            </button>
-        </div>
     </div>
 </div>
 {/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
     import WorkflowMainPanel from "./WorkflowMainPanel.svelte";
     import { enhance } from '$app/forms';
-    import { Pencil, Check, Plus, Trash2 } from 'lucide-svelte';
+    import { Pencil, Check, Plus, Trash2, ChevronDown } from 'lucide-svelte';
 
     let {data, form} = $props();
     let {access, workflows} = $derived(data);
@@ -77,15 +77,18 @@
 
             <div class="right-section">
                 <span class="workflow-label">Select Workflow:</span>
-                <select
-                    class="workflow-select"
-                    bind:value={activeWorkflow}
-                    onchange={handleWorkflowChange}
-                >
-                    {#each workflows as w}
-                        <option value={w}>{w.name}</option>
-                    {/each}
-                </select>
+                <div class="select-wrapper">
+                    <select
+                        class="workflow-select"
+                        bind:value={activeWorkflow}
+                        onchange={handleWorkflowChange}
+                    >
+                        {#each workflows as w}
+                            <option value={w}>{w.name}</option>
+                        {/each}
+                    </select>
+                    <ChevronDown size={16} class="wf-chevron" />
+                </div>
 
                 {#if showAddInput}
                     <form method="POST" action="?/add_workflow" use:enhance={() => {
@@ -109,6 +112,7 @@
                 {:else}
                     <button class="action-btn add-btn" onclick={toggleAddInput} title="Add Workflow">
                         <Plus size={16} strokeWidth={2.5} />
+                        <span>Add Workflow</span>
                     </button>
                 {/if}
 
@@ -127,6 +131,7 @@
                             }
                         }}>
                             <Trash2 size={16} strokeWidth={2.5} />
+                            <span>Delete Workflow</span>
                         </button>
                     </form>
                 {/if}
@@ -173,10 +178,16 @@
         margin-right: 0.75rem;
     }
 
+    .select-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
     .workflow-select {
         font-family: 'Poppins', sans-serif;
         font-size: 0.95rem;
-        padding: 0.5rem 0.5rem;
+        padding: 0.5rem 32px 0.5rem 0.5rem;
         border: 2px solid #e5e7eb;
         border-radius: 8px;
         color: rgb(68, 68, 68);
@@ -185,11 +196,22 @@
         cursor: pointer;
         font-weight: 600;
         transition: border-color 0.2s;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
         
         width: 240px; 
         text-overflow: ellipsis;
         white-space: nowrap;
         overflow: hidden;
+    }
+
+    :global(.wf-chevron) {
+        position: absolute;
+        right: 10px;
+        pointer-events: none;
+        color: #6b7280;
+        flex-shrink: 0;
     }
 
     .workflow-select:focus, .workflow-select:hover {
