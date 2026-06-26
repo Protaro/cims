@@ -1,6 +1,6 @@
 <script lang="ts">
     import CreateContractMainPanel from "./CreateContractMainPanel.svelte";
-    import { Pencil, Check, Save, ChevronDown, X } from 'lucide-svelte';
+    import { Pencil, Check, Save, Search, X } from 'lucide-svelte';
     import { supabase } from "$lib/supabaseInit"; 
     import { uploadFiles, saveFileRecords } from '$lib/fileService';
 
@@ -11,6 +11,12 @@
    
     let workflows = $state<any>([]);
     let selectedWorkflowId = $state('');
+    let searchQuery = $state('');
+    let showDropdown = $state(false);
+    let selectedWorkflow = $derived(workflows.find((w: any) => w.id === selectedWorkflowId) || null);
+    let filteredWorkflows = $derived(
+        workflows.filter((w: any) => w.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
     let { data } = $props();
     let { access , userId} = $derived(data); 
     
@@ -26,19 +32,30 @@
         workflows = data || [];
     });
   
+    function selectWorkflow(workflowId: string) {
+        showDropdown = false;
+        searchQuery = '';
+        selectedWorkflowId = workflowId;
+        if (!workflowId) return;
+        handleWorkflowLoad(workflowId);
+    }
+
     async function handleWorkflowSelect(event: Event) {
         const target = event.target as HTMLSelectElement;
         selectedWorkflowId = target.value;
         if (!selectedWorkflowId) return;
-        
+        await handleWorkflowLoad(selectedWorkflowId);
+    }
+
+    async function handleWorkflowLoad(workflowId: string) {
         isLoadingTemplate = true;
 
-        const selectedWf = workflows.find((wf: any) => wf.id === selectedWorkflowId);
+        const selectedWf = workflows.find((wf: any) => wf.id === workflowId);
         if (selectedWf) {
             ContractName = `New ${selectedWf.name} Contract`;
         }
 
-        const workflow = await getWorkflowWithDetails(selectedWorkflowId);
+        const workflow = await getWorkflowWithDetails(workflowId);
         
         const preChecklist = workflow.preworks?.prework_bridge_table?.map((item: any) => ({
             text: item.prework_default_reqs?.name || "Requirement", 
@@ -310,21 +327,31 @@
 
         <div class="header-actions">
             <div class="template-selector">
-                <div class="select-wrapper">
-                    <select 
-                        id="workflow" 
-                        bind:value={selectedWorkflowId} 
-                        onchange={handleWorkflowSelect}
-                        disabled={currentPhase !== 'Prework'} 
+                <div class="search-wrapper">
+                    <input
+                        type="text"
+                        placeholder="Search templates..."
+                        bind:value={searchQuery}
+                        onfocus={() => showDropdown = true}
+                        onblur={() => setTimeout(() => showDropdown = false, 200)}
+                        disabled={currentPhase !== 'Prework'}
                         title={currentPhase !== 'Prework' ? "Template selection is locked after Prework stage" : ""}
-                        class="custom-select"
-                    >
-                        <option value="" disabled selected>Select a template...</option>
-                        {#each workflows as wf}
-                            <option value={wf.id}>{wf.name}</option>
-                        {/each}
-                    </select>
-                    <ChevronDown size={16} class="select-chevron" />
+                        class="search-input"
+                    />
+                    <Search size={16} class="search-icon" />
+                    {#if showDropdown && filteredWorkflows.length > 0}
+                        <div class="search-dropdown">
+                            {#each filteredWorkflows as wf}
+                                <button
+                                    class="dropdown-item"
+                                    type="button"
+                                    onmousedown={() => selectWorkflow(wf.id)}
+                                >
+                                    {wf.name}
+                                </button>
+                            {/each}
+                        </div>
+                    {/if}
                 </div>
             </div>
 
@@ -349,6 +376,47 @@
             {/if}
         </div>
     </div>
+
+    {#if selectedWorkflow}
+    <div class="template-preview-card">
+        <div class="preview-header">
+            <div class="preview-title-group">
+                <span class="preview-label">Selected Template</span>
+                <h2 class="preview-name">{selectedWorkflow.name}</h2>
+            </div>
+            {#if currentPhase === 'Prework'}
+                <button class="preview-clear-btn" onclick={() => { selectedWorkflowId = ''; searchQuery = ''; contractData = { ...contractData, workflow_id: '' }; }} title="Clear selection">
+                    <X size={14} />
+                </button>
+            {/if}
+        </div>
+        {#if isLoadingTemplate}
+            <div class="preview-loading">Loading template details...</div>
+        {:else if contractData.workflow_id}
+            <div class="preview-stats">
+                <div class="stat-item">
+                    <span class="stat-value">{contractData.prework?.checklist?.length || 0}</span>
+                    <span class="stat-label">Prework items</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-value">{contractData.approval?.stages?.length || 0}</span>
+                    <span class="stat-label">Approval stages</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-value">{contractData.activation?.parties?.length || 0}</span>
+                    <span class="stat-label">Signing parties</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-value">{contractData.postwork?.milestones?.length || 0}</span>
+                    <span class="stat-label">Postwork milestones</span>
+                </div>
+            </div>
+        {/if}
+    </div>
+    {/if}
 
     <div class="workflow-area">
         {#if contractData.workflow_id}
@@ -470,7 +538,9 @@
         .page-title { font-size: 1.5rem; }
         .top-action-bar { padding: 1rem; flex-direction: column; align-items: flex-start; }
         .header-actions { width: 100%; }
-        .template-selector select { min-width: 0; width: 100%; }
+        .template-selector { width: 100%; }
+        .search-wrapper { width: 100%; }
+        .search-input { min-width: 0; width: 100%; }
     }
 
     @media (max-width: 480px) {
@@ -559,55 +629,193 @@
         color: #02461C;
     }
 
-    /* Template Selector */
-    .template-selector { 
-        display: flex; 
-        align-items: center; 
-        gap: 0.5rem; 
-    }
-    
-    .template-selector select { 
-        padding: 10px 14px; 
-        border-radius: 8px; 
-        border: 1px solid #d1d5db; 
-        font-family: 'Poppins', sans-serif;
-        font-size: 0.95rem;
-        outline: none;
-        cursor: pointer;
-        min-width: 200px;
-        transition: border-color 0.2s;
+    /* Template Search */
+    .template-selector {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }
 
-    .template-selector select:focus {
-        border-color: #02461C;
-    }
-
-    .template-selector select:disabled {
-        background-color: #f3f4f6;
-        color: #9ca3af;
-        cursor: not-allowed;
-    }
-
-    .select-wrapper {
+    .search-wrapper {
         position: relative;
         display: flex;
         align-items: center;
     }
 
-    .custom-select {
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        padding-right: 36px;
-        width: 100%;
+    .search-input {
+        padding: 10px 14px 10px 36px;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.95rem;
+        outline: none;
+        min-width: 220px;
+        transition: border-color 0.2s;
+        box-sizing: border-box;
     }
 
-    :global(.select-chevron) {
+    .search-input:focus {
+        border-color: #02461C;
+    }
+
+    .search-input:disabled {
+        background-color: #f3f4f6;
+        color: #9ca3af;
+        cursor: not-allowed;
+    }
+
+    .search-input:disabled + .search-icon {
+        color: #9ca3af;
+    }
+
+    :global(.search-icon) {
         position: absolute;
-        right: 12px;
+        left: 10px;
         pointer-events: none;
         color: #6b7280;
         flex-shrink: 0;
+    }
+
+    .search-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        margin-top: 4px;
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        z-index: 100;
+        max-height: 240px;
+        overflow-y: auto;
+    }
+
+    .dropdown-item {
+        display: block;
+        width: 100%;
+        padding: 10px 14px;
+        border: none;
+        background: none;
+        text-align: left;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.9rem;
+        cursor: pointer;
+        color: #374151;
+        transition: background-color 0.15s;
+    }
+
+    .dropdown-item:hover,
+    .dropdown-item:focus {
+        background-color: #f0fdf4;
+        color: #02461C;
+    }
+
+    .dropdown-item:not(:last-child) {
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    /* Template Preview Card */
+    .template-preview-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .preview-title-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .preview-label {
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6b7280;
+    }
+
+    .preview-name {
+        font-family: 'Poppins', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #02461C;
+        margin: 0;
+    }
+
+    .preview-clear-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: white;
+        cursor: pointer;
+        color: #6b7280;
+        transition: all 0.15s;
+        flex-shrink: 0;
+    }
+
+    .preview-clear-btn:hover {
+        border-color: #d93025;
+        color: #d93025;
+        background: #fef2f2;
+    }
+
+    .preview-loading {
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.85rem;
+        color: #9ca3af;
+    }
+
+    .preview-stats {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
+    }
+
+    .stat-value {
+        font-family: 'Poppins', sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #02461C;
+    }
+
+    .stat-label {
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.75rem;
+        color: #6b7280;
+        white-space: nowrap;
+    }
+
+    .stat-divider {
+        width: 1px;
+        height: 32px;
+        background: #e5e7eb;
     }
     
     .empty-state { 
