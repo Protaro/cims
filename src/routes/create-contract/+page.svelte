@@ -598,13 +598,13 @@
         appearance: none;
         -webkit-appearance: none;
         -moz-appearance: none;
-        padding-right: 36px;
+        padding-right: 32px;
         width: 100%;
     }
 
     :global(.select-chevron) {
         position: absolute;
-        right: 12px;
+        right: 10px;
         pointer-events: none;
         color: #6b7280;
         flex-shrink: 0;

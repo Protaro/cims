@@ -6,6 +6,7 @@
     import { onMount } from 'svelte';
     import { contractStore } from '$lib/contractdetail';
     import { page } from '$app/stores';
+    import { goto } from '$app/navigation';
     import { get } from 'svelte/store';
     import type { PageData } from './$types';
    
@@ -291,6 +292,11 @@
         {:else}
             <div class="workflow-area">
                 
+                <button class="back-link-btn" onclick={() => goto('/view')}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                    <span>Return to Contract List</span>
+                </button>
+                
                 <div class="workflow-header">
                     {#if isEditing}
                         <div class="edit-group">
@@ -401,9 +407,16 @@
                     {modalTitle}
                 </h4>
                 <p>{modalMessage}</p>
-                <button class="modal-btn" onclick={() => showModal = false}>
-                    OK
-                </button>
+                <div class="modal-actions">
+                    <button class="modal-btn" onclick={() => showModal = false}>
+                        OK
+                    </button>
+                    {#if modalTitle === 'Success'}
+                        <button class="modal-btn modal-btn-return" onclick={() => goto('/view')}>
+                            Return to Contract List
+                        </button>
+                    {/if}
+                </div>
             </div>
         </div>
     {/if}
@@ -422,6 +435,25 @@
     .workflow-header {
         min-height: 3rem;
         margin-bottom: 1.5rem;
+    }
+
+    .back-link-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: none;
+        border: none;
+        padding: 0 0 0.75rem 0;
+        cursor: pointer;
+        font-family: 'Poppins', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #6b7280;
+        transition: color 0.2s;
+    }
+
+    .back-link-btn:hover {
+        color: #02461C;
     }
 
     .view-group, 
@@ -659,6 +691,20 @@
 
     .modal-btn:hover {
         background: #004494;
+    }
+
+    .modal-btn-return {
+        background: #02461C;
+    }
+
+    .modal-btn-return:hover {
+        background: #013014;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
     }
 
     :global(.spin) {

@@ -14,12 +14,14 @@
 <div class="phases-container">
     <div class="tab-bar">
         {#each phases as phase}
-            <div
+            <button
                 class="tab"
                 class:active={activePhase === phase}
+                onclick={() => activePhase = phase}
+                disabled={activePhase === phase}
             >
-                {phase.toWellFormed()}
-            </div>
+                {phase}
+            </button>
         {/each}
     </div>
 
@@ -56,7 +58,20 @@
         color: #7a1a1a; 
         text-align: center;
         border-right: 2px solid #dadce0;
-        transition: background-color 0.3s ease, color 0.3s ease; 
+        transition: background-color 0.3s ease, color 0.3s ease;
+        background: transparent;
+        border-top: none;
+        border-left: none;
+        border-bottom: none;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 1.1rem;
+    }
+    .tab:disabled {
+        cursor: default;
+    }
+    .tab:not(.active):hover {
+        background-color: #e5e7eb;
     }
      .tab-bar {
         display: flex;

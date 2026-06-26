@@ -22,12 +22,14 @@
 <div class="phases-container">
     <div class="tab-bar">
         {#each phases as phase}
-            <div
+            <button
                 class="tab"
                 class:active={currentPhase === phase}
+                onclick={() => currentPhase = phase}
+                disabled={currentPhase === phase}
             >
                 {phase}
-            </div>
+            </button>
         {/each}
     </div>
     <div class="content-area">
@@ -64,9 +66,11 @@
         font-size: 16px;
         font-weight: bold;
         color: #7a1a1a;
-        cursor: default;
+        cursor: pointer;
+        border: none;
         border-right: 1px solid #e5e7eb;
         transition: all 0.2s;
+        font-family: inherit;
     }
 
     .tab:last-child {
@@ -78,6 +82,14 @@
         color: white;
         cursor: default;
         box-shadow: inset 0 -4px 0 rgba(0,0,0,0.1);
+    }
+
+    .tab:disabled {
+        cursor: default;
+    }
+
+    .tab:not(.active):hover {
+        background-color: #e5e7eb;
     }
 
     .content-area {

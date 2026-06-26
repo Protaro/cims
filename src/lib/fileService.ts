@@ -74,6 +74,18 @@ function extractPathFromUrl(fileUrl: string): string | null {
     }
 }
 
+export function getShortFileName(fileUrl: string): string {
+    // Extract filename from signed URL like: .../stage-files/{contractId}/{timestamp}-{filename}?token=...
+    // or public URL like: .../stage-files/{contractId}/{timestamp}-{filename}
+    const path = extractPathFromUrl(fileUrl);
+    if (!path) {
+        const name = fileUrl.split('/').pop() || fileUrl;
+        return name.split('?')[0].replace(/^\d+-/, '');
+    }
+    const fileName = path.split('/').pop() || path;
+    return fileName.replace(/^\d+-/, '');
+}
+
 export async function deleteFile(stageType: string, stageId: string, fileUrl: string) {
     const path = extractPathFromUrl(fileUrl);
 

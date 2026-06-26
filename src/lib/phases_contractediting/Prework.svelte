@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from "svelte";
     import { contractStore } from '$lib/contractdetail';
-    import { loadFiles, deleteFile } from '$lib/fileService';
+    import { loadFiles, deleteFile, getShortFileName } from '$lib/fileService';
     const dispatch = createEventDispatcher();
 
     interface Props { data: any; stageId?: string; }
@@ -44,15 +44,9 @@
         contractStore.update(s => ({ ...s, prework: { checklist } }));
     });
 
-    let showConfirmModal = $state(false);
     let isSaving = $state(false);
 
-    function validateBeforeConfirm() {
-        showConfirmModal = true;
-    }
-
     function handleNext() {
-        showConfirmModal = false;
         dispatch("next");
     }
 
@@ -135,7 +129,7 @@
 
         {#each existingFiles as url, i}
         <div class="file-item">
-            <a href={url} target="_blank" rel="noopener noreferrer">{url.split('/').pop()}</a>
+            <a href={url} target="_blank" rel="noopener noreferrer">{getShortFileName(url)}</a>
             <button onclick={() => deleteExistingFile(i)}>×</button>
         </div>
         {/each}
@@ -150,34 +144,10 @@
 
     <!-- PAGE NAVIGATION -->
     <div class="pagenav">
-        <button class="next" onclick={validateBeforeConfirm}>Proceed to <br/> Approval and review</button>
+        <button class="next" onclick={handleNext}>Proceed to <br/> Approval and review</button>
     </div>
 
     <!-- MODALS -->
-    {#if showConfirmModal}
-        <div class="modal-overlay">
-            <div class="modal-content">
-                <h3>Confirmation</h3>
-                <p>Are you sure you want to save these requirements?</p>
-                <div class="modal-actions">
-                    <button
-                        class="cancel-button"
-                        onclick={() => showConfirmModal = false}
-                        disabled={isSaving}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        class="import-button"
-                        onclick={handleNext}
-                        disabled={isSaving}
-                    >
-                        Confirm & Proceed
-                    </button>
-                </div>
-            </div>
-        </div>
-    {/if}
 </div>
 
 <style>
