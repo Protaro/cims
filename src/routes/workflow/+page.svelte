@@ -45,9 +45,6 @@
     }
 </script>
 
-{#if access !== "Workflow Manager"}
-    <h1 style="text-align:center; margin-top: 4rem;">You do not have access to view this page. <br> Please contact a Workflow Manager.</h1>
-{:else}
 <div class="main-content">
     <div class="workflow-area">
         
@@ -145,7 +142,6 @@
         <WorkflowMainPanel workflow={activeWorkflow} />
     </div>
 </div>
-{/if}
 
 <style>
     .main-content {

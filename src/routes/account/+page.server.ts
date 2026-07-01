@@ -7,14 +7,20 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   }
   const { data: profile } = await supabase
     .from('profiles')
-    .select(`username, full_name, access_level`)
+    .select(`username, full_name, access_level, user_group`)
     .eq('id', session.user.id)
     .single()
 
   const {data: users} = await supabase
     .from('profiles')
-    .select(`id, username, full_name, access_level`)
-  return { session, profile, users }
+    .select(`id, username, full_name, access_level, user_group`)
+    .order('username')
+
+  const { data : user_groups} = await supabase
+    .from('user_groups')
+    .select(`id, group_name`)
+
+  return { session, profile, users, user_groups }
 }
 export const actions: Actions = {
   update: async ({ request, locals: { supabase, safeGetSession } }) => {
@@ -71,4 +77,24 @@ export const actions: Actions = {
       access_level: access_level,
     }
   },
+  update_user_group: async ({request, locals: {supabase, safeGetSession}}) => {
+    const formData = await request.formData()
+    const id = formData.get('id') as string
+    const user_group = formData.get('user_group')
+    
+    const { error } = await supabase.from('profiles').update( {
+      updated_at: new Date(),
+      user_group,
+    }).eq('id', id)
+    if(error) {
+      return fail(500, {
+        id: id,
+        user_group: user_group,
+      })
+    }
+    return {
+      id: id,
+      user_group: user_group,
+    }
+  }
 }

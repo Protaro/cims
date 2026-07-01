@@ -365,11 +365,7 @@
     }
 </script>
 
-    {#if access !== "Workflow Manager" && access !== "Contract Manager"}
-    <h1 style="text-align:center; margin-top: 4rem;">You do not have access to view this page. <br> Please contact a Workflow Manager or a Contract Manager.</h1>
-{:else}
 <div class="main-content">
-    
     <button class="back-link-btn" onclick={() => goto('/view')}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
         <span>Return to Contract List</span>
@@ -538,8 +534,6 @@
             </div>
         </div>
     </div>
-{/if}
-
 {/if}
 
 <style>

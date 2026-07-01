@@ -3,12 +3,13 @@
     import type { SubmitFunction } from '@sveltejs/kit';
 
     let { data, form } = $props()
-    let { session, supabase, profile, users} = $derived(data)
+    let { session, supabase, profile, users, user_groups} = $derived(data)
     let profileForm: HTMLFormElement
     let loading = $state(false)
     let fullName: string = $derived(profile?.full_name)
     let username: string = $derived(profile?.username)
     let access_level: string = $derived(profile?.access_level)
+    let user_group: string = $derived(profile?.user_group)
 
     let isEditing: boolean = $state(false)
 
@@ -72,59 +73,58 @@
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label" for="access_level"> Group</label>
-                    <input class="input-field" id="access_level" name="access_level" type="text" value={form?.access_level ?? access_level} disabled={access_level !== "Workflow Manager" || !isEditing} />
+                    <label class="form-label" for="user_group"> Group</label>
+                    <input class="input-field" id="user_group" name="user_group" type="text" value={form?.user_group ?? user_groups.find(g => g.id === user_group)?.group_name ??''} disabled/>
                 </div>
             </div>
         </form>
     </div>
 
-    {#if access_level === "Workflow Manager"}
-        <div class="card">
-            <h2 class="section-title">Registered Users</h2>
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
+    <div class="card">
+        <h2 class="section-title">Registered Users</h2>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Full Name</th>
+                        <th>Username</th>
+                        <th>Group</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each users as user}
                         <tr>
-                            <th>Full Name</th>
-                            <th>Username</th>
-                            <th>Group</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {#each users as user}
-                            <tr>
-                                <td><span class="fw-500">{user.full_name}</span></td>
-                                <td class="text-muted">{user.username}</td>
-                                <td>
-                                    <form
-                                        class="table-form"
-                                        method="post"
-                                        action="?/update_access_level"
-                                        use:enhance={handleSubmit}
+                            <td><span class="fw-500">{user.full_name}</span></td>
+                            <td class="text-muted">{user.username}</td>
+                            <td>
+                                <form
+                                    class="table-form"
+                                    method="post"
+                                    action="?/update_user_group"
+                                    use:enhance={handleSubmit}
+                                >
+                                    <input type="hidden" name="id" value={user.id} />
+                                    <select class="select-field" name="user_group" bind:value={(user.user_group)}>
+                                        {#each user_groups as u_group}
+                                            <option value={u_group.id}>{u_group.group_name}</option>
+                                        {/each}
+                                    </select>
+                                    
+                                    <button
+                                        type="submit"
+                                        class="btn btn-secondary btn-sm"
+                                        disabled={loading}
                                     >
-                                        <input type="hidden" name="id" value={user.id} />
-                                        <select class="select-field" name="access_level" bind:value={user.access_level}>
-                                            {#each access_levels as level}
-                                                <option value={level}>{level}</option>
-                                            {/each}
-                                        </select>
-                                        <button
-                                            type="submit"
-                                            class="btn btn-secondary btn-sm"
-                                            disabled={loading}
-                                        >
-                                            {loading ? '...' : 'Update'}
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        {/each}
-                    </tbody>
-                </table>
-            </div>
+                                        {loading ? '...' : 'Update'}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
         </div>
-    {/if}
+    </div>
 </div>
 
 <style>
