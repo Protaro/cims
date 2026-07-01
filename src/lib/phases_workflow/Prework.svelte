@@ -274,23 +274,40 @@
         border-color: #d1d5db;
     }
 
+    .readonly-text {
+        background-color: #f9fafb;
+        color: #4b5563;
+        border-color: #d1d5db;
+        display: flex;
+        align-items: center;
+    }
+
     .type-badge {
         font-size: 0.75rem;
         background: #e5e7eb;
         color: #374151;
-        padding: 4px 8px;
+        padding: 6px 8px;
         border-radius: 12px;
         font-weight: bold;
         text-transform: uppercase;
+        min-width: 110px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        box-sizing: border-box;
     }
+
 
     .type-dropdown {
         border: 1px solid #e5e7eb;
-		border-radius: 6px;
-		padding: 8px;
-		font-size: 0.85rem;
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 0.85rem;
         background: white;
         color: #374151;
+        width: 110px;
+        box-sizing: border-box;
     }
 
 	.delete-btn {

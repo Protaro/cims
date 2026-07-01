@@ -155,12 +155,11 @@
 
     .workflow-header {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        min-height: 3rem;
+        flex-direction: column;
+        align-items: flex-start;
+        min-height: auto;
         margin-bottom: 1.5rem;
-        gap: 1rem;
-        flex-wrap: wrap;
+        gap: 0.75rem;
     }
 
     .right-section {
@@ -168,6 +167,7 @@
         align-items: center;
         gap: 0.5rem;
         flex-wrap: wrap;
+        margin-top: 0.25rem;
     }
 
     .workflow-label {
