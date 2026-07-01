@@ -65,8 +65,8 @@
     let sortGroupValue = $derived(sortOrder !== 'asc' && sortOrder !== 'desc' ? sortOrder : null);
 
     let showManageAccess = $state(false);
-    let selectedContract = $state<any>(null);
-
+    let selectedContract = $state<any[]>([]);
+    
     const visibleContracts = $derived(
         (contracts ?? [])
             .filter(c => {
@@ -813,22 +813,16 @@
     </button>
     <button
     class="action-btn bulk-manage-access-btn"
+    disabled={selectedIds.size === 0}
+    
     onclick={() => {
-        const selected = visibleContracts.filter(
-            (c:any) => selectedIds.has(c.id)
-        );
-
-        if (selected.length !== 1) {
-            alert('Select exactly one contract.');
-            return;
-        }
-
-        selectedContract = selected[0];
-        showManageAccess = true;
-    }}
->
-    Manage Access
-</button>
+        selectedContract = visibleContracts.filter(
+            (c:any) =>
+            selectedIds.has(c.id)
+    );
+    showManageAccess = true;
+        
+    }}>Manage Access </button>
     </div>
     {/if}
     
@@ -974,7 +968,7 @@
     </div>
 {/if}
 
-{#if showManageAccess && selectedContract}
+{#if showManageAccess && selectedContract.length}
 <div
     class="modal-overlay"
     onclick={() => {
@@ -996,21 +990,29 @@
                 class="btn-cancel"
                 onclick={() => {
                     showManageAccess = false;
+                    selectedContract = [];
                 }}
             >
                 Close
             </button>
         </div>
-
-        <ManageAccessPanel
-            contractId={selectedContract.id}
-            users={users}
-            editors={selectedContract.editors ?? []}
-            viewers={selectedContract.viewers ?? []}
-        />
-
+        <div class="manage-access-scroll">
+            {#each selectedContract as contract}
+            <div class="contract-access-card">
+                <h4 class="contract-access-title">
+                    {contract.title}
+                </h4>
+                <ManageAccessPanel
+                contractId={contract.id}
+                users={users}
+                editors={contract.editors ?? []}
+                viewers={contract.viewers ?? []}
+                />
+                </div>
+                {/each}
+            </div>
+        </div>
     </div>
-</div>
 {/if}
 
 <!-- CSV Import Modal -->
@@ -1585,6 +1587,29 @@
     .contract-link:hover {
         text-decoration: underline;
         color: #7B1113;
+    }
+    .contract-access-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .contract-access-title {
+        margin-bottom: 1rem;
+        color: #02461C;
+        font-size: 1rem;
+    }
+    
+    .manage-access-scroll {
+        max-height: 70vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .access-modal {
+        width: min(1100px, 95vw);
     }
 
     .draft-title { color: #e67e22; }

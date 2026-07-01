@@ -272,9 +272,7 @@
     }
 </script>
 
-{#if access !== "Workflow Manager" && access !== "Contract Manager"}
-    <h1 style="text-align:center; margin-top: 4rem;">You do not have access to view this page. <br> Please contact a Workflow Manager or a Contract Manager.</h1>
-{:else}
+
     <div class="main-content">
         
         {#if isLoadingContract}
@@ -369,8 +367,6 @@
             </div>
         </div>
     {/if}
-
-{/if}
 
 <style>
     .main-content {
