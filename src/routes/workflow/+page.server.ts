@@ -16,7 +16,8 @@ export const load : PageServerLoad = async ({ locals: { supabase, safeGetSession
 
     const { data, error } = await supabase
         .from('workflows')
-        .select('*');
+        .select('*')
+        .order('name');
 
     if (error) {
         console.error(error);
