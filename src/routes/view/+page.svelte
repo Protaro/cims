@@ -9,6 +9,7 @@
     import { parseCsv } from '$lib/csvParser';
     import { uploadFiles, saveFileRecords, deleteFile } from '$lib/fileService';
     import * as XLSX from 'xlsx';
+    import ManageAccessPanel from "$lib/components/ManageAccessPanel.svelte";
 
     let { data } = $props();
     let { access, contracts, users, session_id} = $derived(data); 
@@ -62,6 +63,9 @@
     let sortOrder = $derived(sortParts[1] || 'desc');
     let sortAsc = $derived(sortOrder === 'asc');
     let sortGroupValue = $derived(sortOrder !== 'asc' && sortOrder !== 'desc' ? sortOrder : null);
+
+    let showManageAccess = $state(false);
+    let selectedContract = $state<any>(null);
 
     const visibleContracts = $derived(
         (contracts ?? [])
@@ -795,22 +799,39 @@
         </div>
     {/if}
 
-    {#if selectedIds.size > 0}
-        <div class="bulk-bar">
-            <span class="bulk-count">{selectedIds.size} selected</span>
-            <button class="action-btn bulk-delete-btn" onclick={() => {
-                const targets = visibleContracts.filter((c: any) => selectedIds.has(c.id));
-                confirmDelete(targets);
-            }}>
-                <Trash2 size={16} strokeWidth={2.5} />
-                <span>Delete Selected</span>
-            </button>
-            <button class="action-btn bulk-clear-btn" onclick={clearSelection}>
-                Clear Selection
-            </button>
-        </div>
-    {/if}
 
+    {#if selectedIds.size > 0}
+    <div class="bulk-bar">
+        <span class="bulk-count">{selectedIds.size} selected</span>
+        <button class="action-btn bulk-delete-btn" onclick={() => { const targets = visibleContracts.filter((c:any) => selectedIds.has(c.id) );confirmDelete(targets);}}>
+        <Trash2 size={16}/>
+        <span>Delete Selected</span>
+    </button>
+
+    <button class="action-btn bulk-clear-btn" onclick={clearSelection}>
+        Clear Selection
+    </button>
+    <button
+    class="action-btn bulk-manage-access-btn"
+    onclick={() => {
+        const selected = visibleContracts.filter(
+            (c:any) => selectedIds.has(c.id)
+        );
+
+        if (selected.length !== 1) {
+            alert('Select exactly one contract.');
+            return;
+        }
+
+        selectedContract = selected[0];
+        showManageAccess = true;
+    }}
+>
+    Manage Access
+</button>
+    </div>
+    {/if}
+    
     <div class="table-container">
         <table>
             <thead>
@@ -951,6 +972,45 @@
             </div>
         </div>
     </div>
+{/if}
+
+{#if showManageAccess && selectedContract}
+<div
+    class="modal-overlay"
+    onclick={() => {
+        showManageAccess = false;
+    }}
+>
+    <div
+        class="modal-content access-modal"
+        onclick={(e) => e.stopPropagation()}
+    >
+
+        <div class="access-header">
+            <h3>
+                Manage Access —
+                {selectedContract.title}
+            </h3>
+
+            <button
+                class="btn-cancel"
+                onclick={() => {
+                    showManageAccess = false;
+                }}
+            >
+                Close
+            </button>
+        </div>
+
+        <ManageAccessPanel
+            contractId={selectedContract.id}
+            users={users}
+            editors={selectedContract.editors ?? []}
+            viewers={selectedContract.viewers ?? []}
+        />
+
+    </div>
+</div>
 {/if}
 
 <!-- CSV Import Modal -->
@@ -1110,6 +1170,8 @@
     </div>
 {/if}
 {/if}
+
+
 
 <style>
     :global(body) {
@@ -1492,6 +1554,9 @@
     .bulk-delete-btn:hover { background-color: #fef2f2; }
     .bulk-clear-btn { background: transparent; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.3); }
     .bulk-clear-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+    .bulk-manage-access-btn { background-color: white; color: #7B1113; }
+    .bulk-manage-access-btn:hover { background-color: #fef2f2; }
+    .bulk-manage-access-btn:disabled{ opacity:.5; cursor:not-allowed; }
 
     .btn-danger {
         background: #dc2626; color: white; border: none;
@@ -1674,6 +1739,18 @@
         font-size: 0.8rem;
         color: #6b7280;
     }
+
+    .access-modal{
+    max-width:900px;
+    width:90%;
+}
+
+.access-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
 
     @media (max-width: 768px) {
         .main-content { padding: 1rem; }

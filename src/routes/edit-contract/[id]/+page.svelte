@@ -8,6 +8,7 @@
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
     import { get } from 'svelte/store';
+    import ManageAccessPanel from "$lib/components/ManageAccessPanel.svelte";
     import type { PageData } from './$types';
    
     let { data } = $props();
@@ -338,59 +339,7 @@
                 </div>
 
                 {#if showCollaborators}
-                    <div class="collaborators-panel">
-                        <div class="collab-column">
-                            <h3>Editors</h3>
-                            <div class="collab-list">
-                                {#each editorUsers as user}
-                                    <div class="collab-item">
-                                        <span>{user.username}</span>
-                                        <form method="POST" action="?/removeEditor">
-                                            <input type="hidden" name="userId" value={user.id} />
-                                            <input type="hidden" name="contractId" value={contractData.id} />
-                                            <button type="submit" class="text-btn">Remove</button>
-                                        </form>
-                                    </div>
-                                {/each}
-                            </div>
-                            <form method="POST" action="?/addEditor" class="add-form">
-                                <input type="hidden" name="contractId" value={contractData.id} />
-                                <select name="userId" required class="select-input">
-                                    <option disabled selected value="">Add editor</option>
-                                    {#each availableEditors as user}
-                                        <option value={user.id}>{user.username}</option>
-                                    {/each}
-                                </select>
-                                <button type="submit" class="action-btn small-btn">Add</button>
-                            </form>
-                        </div>
-
-                        <div class="collab-column">
-                            <h3>Viewers</h3>
-                            <div class="collab-list">
-                                {#each viewerUsers as user}
-                                    <div class="collab-item">
-                                        <span>{user.username}</span>
-                                        <form method="POST" action="?/removeViewer">
-                                            <input type="hidden" name="userId" value={user.id} />
-                                            <input type="hidden" name="contractId" value={contractData.id} />
-                                            <button type="submit" class="text-btn">Remove</button>
-                                        </form>
-                                    </div>
-                                {/each}
-                            </div>
-                            <form method="POST" action="?/addViewer" class="add-form">
-                                <input type="hidden" name="contractId" value={contractData.id} />
-                                <select name="userId" required class="select-input">
-                                    <option disabled selected value="">Add viewer</option>
-                                    {#each availableViewers as user}
-                                        <option value={user.id}>{user.username}</option>
-                                    {/each}
-                                </select>
-                                <button type="submit" class="action-btn small-btn">Add</button>
-                            </form>
-                        </div>
-                    </div>
+                <ManageAccessPanel contractId={contractData.id} users={users} editors={editors} viewers={viewers} />
                 {/if}
 
                 {#key contractData.id}
@@ -562,70 +511,6 @@
         color: #111827;
     }
     
-    .collaborators-panel {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2rem;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-    }
-
-    .collab-column h3 {
-        font-family: 'Poppins', sans-serif;
-        font-size: 1.1rem;
-        margin: 0 0 1rem 0;
-        color: #374151;
-    }
-
-    .collab-list {
-        margin-bottom: 1rem;
-    }
-
-    .collab-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 6px 0;
-        border-bottom: 1px solid #e5e7eb;
-        font-size: 0.9rem;
-    }
-
-    .text-btn {
-        background: none;
-        border: none;
-        color: #dc2626;
-        font-size: 0.8rem;
-        cursor: pointer;
-        text-decoration: underline;
-        padding: 0;
-    }
-
-    .add-form {
-        display: flex;
-        gap: 10px;
-    }
-
-    .select-input {
-        flex: 1;
-        padding: 8px;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-family: 'Poppins', sans-serif;
-        font-size: 0.9rem;
-    }
-
-    .small-btn {
-        padding: 6px 12px;
-        background-color: #4b5563;
-    }
-
-    .small-btn:hover {
-        background-color: #374151;
-    }
-
     /* Layout & Modals */
     .empty-state {
         text-align: center;

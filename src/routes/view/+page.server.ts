@@ -14,7 +14,13 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
     .eq('id', session.user.id)
     .single()
 
-	const { data, error } = await supabase.from('contracts').select('*');
+	const { data, error } = await supabase
+    .from('contracts')
+    .select(`
+        *,
+        editors,
+        viewers
+    `);
 
 	if (error) {
 		console.error(error);
@@ -75,5 +81,105 @@ export const actions: Actions = {
 		}
 
 		return { success: true };
-	}
+	},
+
+	addEditor: async ({ request, locals: { supabase } }) => {
+    const form = await request.formData();
+
+    const contractId = form.get('contractId') as string;
+    const userId = form.get('userId') as string;
+
+    const { data: contract } = await supabase
+        .from('contracts')
+        .select('editors')
+        .eq('id', contractId)
+        .single();
+
+    const editors = [...(contract?.editors ?? [])];
+
+    if (!editors.includes(userId)) {
+        editors.push(userId);
+    }
+
+    await supabase
+        .from('contracts')
+        .update({ editors })
+        .eq('id', contractId);
+
+    return { success: true };
+},
+
+removeEditor: async ({ request, locals: { supabase } }) => {
+    const form = await request.formData();
+
+    const contractId = form.get('contractId') as string;
+    const userId = form.get('userId') as string;
+
+    const { data: contract } = await supabase
+        .from('contracts')
+        .select('editors')
+        .eq('id', contractId)
+        .single();
+
+    const editors =
+        (contract?.editors ?? [])
+            .filter((id:string) => id !== userId);
+
+    await supabase
+        .from('contracts')
+        .update({ editors })
+        .eq('id', contractId);
+
+    return { success: true };
+},
+
+addViewer: async ({ request, locals: { supabase } }) => {
+    const form = await request.formData();
+
+    const contractId = form.get('contractId') as string;
+    const userId = form.get('userId') as string;
+
+    const { data: contract } = await supabase
+        .from('contracts')
+        .select('viewers')
+        .eq('id', contractId)
+        .single();
+
+    const viewers = [...(contract?.viewers ?? [])];
+
+    if (!viewers.includes(userId)) {
+        viewers.push(userId);
+    }
+
+    await supabase
+        .from('contracts')
+        .update({ viewers })
+        .eq('id', contractId);
+
+    return { success: true };
+},
+
+removeViewer: async ({ request, locals: { supabase } }) => {
+    const form = await request.formData();
+
+    const contractId = form.get('contractId') as string;
+    const userId = form.get('userId') as string;
+
+    const { data: contract } = await supabase
+        .from('contracts')
+        .select('viewers')
+        .eq('id', contractId)
+        .single();
+
+    const viewers =
+        (contract?.viewers ?? [])
+            .filter((id:string) => id !== userId);
+
+    await supabase
+        .from('contracts')
+        .update({ viewers })
+        .eq('id', contractId);
+
+    return { success: true };
+},
 };

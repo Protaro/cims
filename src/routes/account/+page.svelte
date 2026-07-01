@@ -72,7 +72,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label" for="access_level">Access Level</label>
+                    <label class="form-label" for="access_level"> Group</label>
                     <input class="input-field" id="access_level" name="access_level" type="text" value={form?.access_level ?? access_level} disabled={access_level !== "Workflow Manager" || !isEditing} />
                 </div>
             </div>
@@ -88,7 +88,7 @@
                         <tr>
                             <th>Full Name</th>
                             <th>Username</th>
-                            <th>Access Level</th>
+                            <th>Group</th>
                         </tr>
                     </thead>
                     <tbody>
