@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import type {PageServerLoad } from './$types'
+import type {PageServerLoad, Actions } from './$types'
 
 export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSession }}) => {
     const {session} = await safeGetSession()
@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
 
     const { data : access } = await supabase
     .from('profiles')
-    .select('access_level, id')
+    .select('access_level, id, user_group')
     .eq('id', session.user.id)
     .single()
 
@@ -17,107 +17,116 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
         .from('contracts')
         .select('id, editors, viewers');
 
-    const { data: users } = await supabase
-        .from('profiles')
-        .select('id, username, access_level')
-        .in('access_level', ['Workflow Manager', 'Contract Manager']);
+    const { data: groups } = await supabase
+        .from('user_groups')
+        .select('id, group_name');
 
     return {
         access : access?.access_level,
         contracts: contracts ?? [],
-        users: users ?? [],
-        session_id: access?.id
+        groups: groups ?? [],
+        session_id: access?.id,
+        user_group: access?.user_group
     };
-
-//    return {
-//        access : access?.access_level,
-//        editors: contract?.editors ?? [],
-//        viewers: contract?.viewers ?? [],
-//        users: users ?? []
-//    };
 }
 
-export const actions = {
+export const actions: Actions = {
     addEditor: async ({ request, locals: { supabase } }) => {
         const form = await request.formData();
-        const userId = form.get('userId') as string;
-        const contractId = form.get('contractId') as string;
+        const groupId = form.get('groupId') as string;
+        const contractIdsRaw = form.get('contractIds') as string;
+        const contractIds: string[] = JSON.parse(contractIdsRaw);
+        if (!contractIds || contractIds.length === 0) return { success: true };
 
-        const { data } = await supabase
-            .from('contracts')
-            .select('editors')
-            .eq('id', contractId)
-            .single();
+        for (const contractId of contractIds) {
+            const { data } = await supabase
+                .from('contracts')
+                .select('editors')
+                .eq('id', contractId)
+                .single();
 
-        const updated = [...(data?.editors ?? []), userId];
+            const updated = [...(data?.editors ?? []), groupId];
 
-        await supabase
-            .from('contracts')
-            .update({ editors: updated })
-            .eq('id', contractId);
+            await supabase
+                .from('contracts')
+                .update({ editors: updated })
+                .eq('id', contractId);
+        }
 
         return { success: true };
     },
 
     removeEditor: async ({ request, locals: { supabase } }) => {
         const form = await request.formData();
-        const userId = form.get('userId') as string;
-        const contractId = form.get('contractId') as string;
+        const groupId = form.get('groupId') as string;
+        const contractIdsRaw = form.get('contractIds') as string;
+        const contractIds: string[] = JSON.parse(contractIdsRaw);
+        if (!contractIds || contractIds.length === 0) return { success: true };
 
-        const { data } = await supabase
-            .from('contracts')
-            .select('editors')
-            .eq('id', contractId)
-            .single();
+        for (const contractId of contractIds) {
+            const { data } = await supabase
+                .from('contracts')
+                .select('editors')
+                .eq('id', contractId)
+                .single();
 
-        const updated = (data?.editors ?? []).filter((id: string) => id !== userId);
+            const updated = (data?.editors ?? []).filter((id: string) => id !== groupId);
 
-        await supabase
-            .from('contracts')
-            .update({ editors: updated })
-            .eq('id', contractId);
+            await supabase
+                .from('contracts')
+                .update({ editors: updated })
+                .eq('id', contractId);
+        }
 
         return { success: true };
     },
 
     addViewer: async ({ request, locals: { supabase } }) => {
         const form = await request.formData();
-        const userId = form.get('userId') as string;
-        const contractId = form.get('contractId') as string;
+        const groupId = form.get('groupId') as string;
+        const contractIdsRaw = form.get('contractIds') as string;
+        const contractIds: string[] = JSON.parse(contractIdsRaw);
+        if (!contractIds || contractIds.length === 0) return { success: true };
 
-        const { data } = await supabase
-            .from('contracts')
-            .select('viewers')
-            .eq('id', contractId)
-            .single();
+        for (const contractId of contractIds) {
+            const { data } = await supabase
+                .from('contracts')
+                .select('viewers')
+                .eq('id', contractId)
+                .single();
 
-        const updated = [...(data?.viewers ?? []), userId];
+            const updated = [...(data?.viewers ?? []), groupId];
 
-        await supabase
-            .from('contracts')
-            .update({ viewers: updated })
-            .eq('id', contractId);
+            await supabase
+                .from('contracts')
+                .update({ viewers: updated })
+                .eq('id', contractId);
+        }
 
         return { success: true };
     },
 
     removeViewer: async ({ request, locals: { supabase } }) => {
         const form = await request.formData();
-        const userId = form.get('userId') as string;
-        const contractId = form.get('contractId') as string;
+        const groupId = form.get('groupId') as string;
+        const contractIdsRaw = form.get('contractIds') as string;
+        const contractIds: string[] = JSON.parse(contractIdsRaw);
+        if (!contractIds || contractIds.length === 0) return { success: true };
 
-        const { data } = await supabase
-            .from('contracts')
-            .select('viewers')
-            .eq('id', contractId)
-            .single();
+        for (const contractId of contractIds) {
+            const { data } = await supabase
+                .from('contracts')
+                .select('viewers')
+                .eq('id', contractId)
+                .single();
 
-        const updated = (data?.viewers ?? []).filter((id: string) => id !== userId);
+            const updated = (data?.viewers ?? []).filter((id: string) => id !== groupId);
 
-        await supabase
-            .from('contracts')
-            .update({ viewers: updated })
-            .eq('id', contractId);
+            await supabase
+                .from('contracts')
+                .update({ viewers: updated })
+                .eq('id', contractId);
+        }
 
         return { success: true };
     }

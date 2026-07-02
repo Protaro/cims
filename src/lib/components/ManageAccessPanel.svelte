@@ -1,244 +1,150 @@
 <script lang="ts">
+import { invalidateAll } from '$app/navigation';
 
 let {
-    contractId,
-    users,
+    contractIds,
+    groups,
     editors,
     viewers
 }: {
-    contractId: string;
-    users: any[];
+    contractIds: string[];
+    groups: any[];
     editors: string[];
     viewers: string[];
 } = $props();
 
-const editorUsers = $derived(
-    users?.filter(u => editors?.includes(u.id)) ?? []
+let selectedEditorGroup = $state('');
+let selectedViewerGroup = $state('');
+
+const editorGroups = $derived(
+    groups?.filter(g => editors?.includes(g.id)) ?? []
 );
 
-const viewerUsers = $derived(
-    users?.filter(u => viewers?.includes(u.id)) ?? []
+const viewerGroups = $derived(
+    groups?.filter(g => viewers?.includes(g.id)) ?? []
 );
 
-const availableEditors = $derived(
-    users?.filter(u => !editors?.includes(u.id)) ?? []
+const availableEditorGroups = $derived(
+    groups?.filter(g => !editors?.includes(g.id)) ?? []
 );
 
-const availableViewers = $derived(
-    users?.filter(u => !viewers?.includes(u.id)) ?? []
+const availableViewerGroups = $derived(
+    groups?.filter(g => !viewers?.includes(g.id)) ?? []
 );
 
+async function submitAction(action: string, groupId: string) {
+    const body = new URLSearchParams();
+    body.set('groupId', groupId);
+    body.set('contractIds', JSON.stringify(contractIds));
+
+    await fetch(`?/${action}`, {
+        method: 'POST',
+        body
+    });
+
+    selectedEditorGroup = '';
+    selectedViewerGroup = '';
+    await invalidateAll();
+}
 </script>
 
-<div class="collaborators-panel">
-
+<div class="columns-row">
     <div class="collab-column">
+        <div class="add-form">
+            <select class="select-input" bind:value={selectedEditorGroup}>
+                <option value="">Add as Editor</option>
+                {#each availableEditorGroups as group}
+                    <option value={group.id}>{group.group_name}</option>
+                {/each}
+            </select>
+            <button class="small-btn" disabled={!selectedEditorGroup} onclick={() => submitAction('addEditor', selectedEditorGroup)}>Add</button>
+        </div>
 
         <h3>Editors</h3>
-
         <div class="collab-list">
-            {#each editorUsers as user}
-
+            {#each editorGroups as group}
                 <div class="collab-item">
-
-                    <span>{user.username}</span>
-
-                    <form method="POST" action="?/removeEditor">
-
-                        <input
-                            type="hidden"
-                            name="userId"
-                            value={user.id}
-                        />
-
-                        <input
-                            type="hidden"
-                            name="contractId"
-                            value={contractId}
-                        />
-
-                        <button
-                            type="submit"
-                            class="text-btn"
-                        >
-                            Remove
-                        </button>
-
-                    </form>
-
+                    <span>{group.group_name}</span>
+                    <button type="button" class="text-btn" onclick={() => submitAction('removeEditor', group.id)}>Remove</button>
                 </div>
-
             {/each}
         </div>
-
-        <form
-            method="POST"
-            action="?/addEditor"
-            class="add-form"
-        >
-
-            <input
-                type="hidden"
-                name="contractId"
-                value={contractId}
-            />
-
-            <select
-                name="userId"
-                required
-                class="select-input"
-            >
-
-                <option value="">
-                    Add editor
-                </option>
-
-                {#each availableEditors as user}
-                    <option value={user.id}>
-                        {user.username}
-                    </option>
-                {/each}
-
-            </select>
-
-            <button
-                type="submit"
-                class="action-btn small-btn"
-            >
-                Add
-            </button>
-
-        </form>
-
     </div>
 
     <div class="collab-column">
-
-        <h3>Viewers</h3>
-
-        <div class="collab-list">
-
-            {#each viewerUsers as user}
-
-                <div class="collab-item">
-
-                    <span>{user.username}</span>
-
-                    <form
-                        method="POST"
-                        action="?/removeViewer"
-                    >
-
-                        <input
-                            type="hidden"
-                            name="userId"
-                            value={user.id}
-                        />
-
-                        <input
-                            type="hidden"
-                            name="contractId"
-                            value={contractId}
-                        />
-
-                        <button
-                            type="submit"
-                            class="text-btn"
-                        >
-                            Remove
-                        </button>
-
-                    </form>
-
-                </div>
-
-            {/each}
-
+        <div class="add-form">
+            <select class="select-input" bind:value={selectedViewerGroup}>
+                <option value="">Add as Viewer</option>
+                {#each availableViewerGroups as group}
+                    <option value={group.id}>{group.group_name}</option>
+                {/each}
+            </select>
+            <button class="small-btn" disabled={!selectedViewerGroup} onclick={() => submitAction('addViewer', selectedViewerGroup)}>Add</button>
         </div>
 
-        <form
-            method="POST"
-            action="?/addViewer"
-            class="add-form"
-        >
-
-            <input
-                type="hidden"
-                name="contractId"
-                value={contractId}
-            />
-
-            <select
-                name="userId"
-                required
-                class="select-input"
-            >
-
-                <option value="">
-                    Add viewer
-                </option>
-
-                {#each availableViewers as user}
-                    <option value={user.id}>
-                        {user.username}
-                    </option>
-                {/each}
-
-            </select>
-
-            <button
-                type="submit"
-                class="action-btn small-btn"
-            >
-                Add
-            </button>
-
-        </form>
-
+        <h3>Viewers</h3>
+        <div class="collab-list">
+            {#each viewerGroups as group}
+                <div class="collab-item">
+                    <span>{group.group_name}</span>
+                    <button type="button" class="text-btn" onclick={() => submitAction('removeViewer', group.id)}>Remove</button>
+                </div>
+            {/each}
+        </div>
     </div>
-
 </div>
+
 <style>
-.collaborators-panel {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2rem;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-    }
+.columns-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
 
-    .collab-column h3 {
-        font-family: 'Poppins', sans-serif;
-        font-size: 1.1rem;
-        margin: 0 0 1rem 0;
-        color: #374151;
-    }
+.collab-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+}
 
-    .collab-list {
-        margin-bottom: 1rem;
-    }
+.collab-column h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.1rem;
+    margin: 0;
+    color: #374151;
+}
 
-    .collab-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 6px 0;
-        border-bottom: 1px solid #e5e7eb;
-        font-size: 0.9rem;
-    }
+.collab-list {
+    display: flex;
+    flex-direction: column;
+}
 
-    .text-btn {
-        background: none;
-        border: none;
-        color: #dc2626;
-        font-size: 0.8rem;
-        cursor: pointer;
-        text-decoration: underline;
-        padding: 0;
-    }
+.collab-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.9rem;
+}
+
+.collab-item:last-child {
+    border-bottom: none;
+}
+
+.text-btn {
+    background: none;
+    border: none;
+    color: #dc2626;
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+}
 
 .add-form {
     display: flex;
@@ -265,26 +171,29 @@ const availableViewers = $derived(
 .small-btn {
     width: 44px;
     height: 44px;
-
     display: flex;
     align-items: center;
     justify-content: center;
-
     border: none;
     border-radius: 12px;
-
     background: maroon;
     color: white;
-
     cursor: pointer;
-
     font-family: 'Poppins', sans-serif;
     font-size: 0.9rem;
     font-weight: 600;
+    transition: background 0.2s ease, transform 0.15s ease;
+    flex-shrink: 0;
+}
 
-    transition:
-        background 0.2s ease,
-        transform 0.15s ease;
+.small-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.small-btn:disabled:hover {
+    background: maroon;
+    transform: none;
 }
 
 .small-btn:hover {
@@ -295,9 +204,4 @@ const availableViewers = $derived(
 .small-btn:active {
     transform: scale(0.96);
 }
-
-    .small-btn:hover {
-        background-color: #374151;
-    }
-
-    </style>
+</style>

@@ -12,7 +12,7 @@
     import type { PageData } from './$types';
    
     let { data } = $props();
-    let { access, contracts, users, session_id } = $derived(data); 
+    let { access, contracts, groups, session_id, user_group } = $derived(data); 
     
     let currentPhase = $state('Prework'); 
     let isLoadingContract = $state(true);
@@ -47,13 +47,8 @@
     const editors = $derived(currentContract?.editors ?? []);
     const viewers = $derived(currentContract?.viewers ?? []);
 
-    const editorUsers = $derived(users?.filter((u: any) => editors.includes(u.id)) ?? []);
-    const viewerUsers = $derived(users?.filter((u: any) => viewers.includes(u.id)) ?? []);
-    const availableEditors = $derived(users?.filter((u: any) => !editors.includes(u.id)) ?? []);
-    const availableViewers = $derived(users?.filter((u: any) => !viewers.includes(u.id)) ?? []);
-
-    const isEditor = $derived(editorUsers.some((u: any) => u.id === session_id));
-    const isViewer = $derived(viewerUsers.some((u: any) => u.id === session_id));
+    const isEditor = $derived(editors.includes(user_group) || editors.includes(session_id));
+    const isViewer = $derived(viewers.includes(user_group) || viewers.includes(session_id));
 
     onMount(async () => {
         if (!contractId) return;
@@ -337,7 +332,7 @@
                 </div>
 
                 {#if showCollaborators}
-                <ManageAccessPanel contractId={contractData.id} users={users} editors={editors} viewers={viewers} />
+                <ManageAccessPanel contractIds={[contractId]} groups={groups} editors={editors} viewers={viewers} />
                 {/if}
 
                 {#key contractData.id}

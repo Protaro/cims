@@ -3,8 +3,9 @@
     import { goto, invalidateAll } from '$app/navigation';
 
     let { data } = $props();
-    let users = $derived(data.users);
+    let groups = $derived(data.groups);
     let session_id = $derived(data.session_id);
+    let user_group = $derived(data.user_group);
     let contract = $derived(data.contract);
     let prework = $derived(data.prework || []);
     let approvals = $derived(data.approvals || { stages: [] });
@@ -15,21 +16,8 @@
     const editors = $derived(contract?.editors ?? []);
     const viewers = $derived(contract?.viewers ?? []);
 
-    const editorUsers = $derived(
-        users.filter(u => editors.includes(u.id))
-    );
-
-    const viewerUsers = $derived(
-        users.filter(u => viewers.includes(u.id))
-    );
-    
-    const isEditor = $derived(
-        editorUsers.some(u => u.id === session_id)
-    );
-
-    const isViewer = $derived(
-        viewerUsers.some(u => u.id === session_id)
-    );
+    const isEditor = $derived(editors.includes(user_group) || editors.includes(session_id));
+    const isViewer = $derived(viewers.includes(user_group) || viewers.includes(session_id));
 
     let showDeleteModal = $state(false);
     let isDeleting = $state(false);

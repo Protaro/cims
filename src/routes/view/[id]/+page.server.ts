@@ -14,14 +14,13 @@ export const load: PageServerLoad = async ({
 
     const { data: access } = await supabase
         .from('profiles')
-        .select('access_level, id')
+        .select('access_level, id, user_group')
         .eq('id', session.user.id)
         .single();
 
-    const { data: users } = await supabase
-        .from('profiles')
-        .select('id, username, access_level')
-        .in('access_level', ['Workflow Manager', 'Contract Manager']);
+    const { data: groups } = await supabase
+        .from('user_groups')
+        .select('id, group_name');
 
     const { data: contract, error: dbError } = await supabase
         .from('contracts')
@@ -82,7 +81,8 @@ export const load: PageServerLoad = async ({
         activations,
         postwork,
         fileGroups,
-        users: users ?? [],
-        session_id: access?.id ?? null
+        groups: groups ?? [],
+        session_id: access?.id ?? null,
+        user_group: access?.user_group ?? null
     };
 };

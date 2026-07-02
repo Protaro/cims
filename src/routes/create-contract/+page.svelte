@@ -253,7 +253,7 @@
                         title: finalTitle, 
                         type: finalContractType, 
                         status: finalContractStatus, 
-                        editors: [userId], 
+                        editors: [userId],
                         viewers: [userId],
                         last_modified: timestamp 
                     })
@@ -270,8 +270,8 @@
                         title: finalTitle, 
                         type: finalContractType, 
                         status: finalContractStatus, 
-                        editors: [userId], 
-                        viewers: [userId],
+                        editors: [user_group], 
+                        viewers: [user_group],
                         last_modified: timestamp
                     })
                     .eq('id', contractId);

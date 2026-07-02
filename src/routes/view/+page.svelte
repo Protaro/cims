@@ -12,7 +12,7 @@
     import ManageAccessPanel from "$lib/components/ManageAccessPanel.svelte";
 
     let { data } = $props();
-    let { access, contracts, users, session_id} = $derived(data); 
+    let { access, contracts, groups, session_id, user_group} = $derived(data); 
 
     let showConfirmModal = $state(false);
     let isUpdating = $state(false);
@@ -65,7 +65,14 @@
     let sortGroupValue = $derived(sortOrder !== 'asc' && sortOrder !== 'desc' ? sortOrder : null);
 
     let showManageAccess = $state(false);
-    let selectedContract = $state<any[]>([]);
+    let selectedContractIds = $state<string[]>([]);
+
+    const selectedContracts = $derived(
+        (contracts ?? []).filter((c: any) => selectedContractIds.includes(c.id))
+    );
+
+    const allEditorIds = $derived([...new Set(selectedContracts.flatMap((c: any) => c.editors ?? []))]);
+    const allViewerIds = $derived([...new Set(selectedContracts.flatMap((c: any) => c.viewers ?? []))]);
     
     const visibleContracts = $derived(
         (contracts ?? [])
@@ -450,7 +457,6 @@
         csvCreatedIds = [];
         csvRolledBack = false;
 
-        const userId = session_id;
         let imported = 0;
         const rowErrors: string[] = [];
 
@@ -468,8 +474,8 @@
                         title: row.title,
                         type: row.type,
                         status: row.status,
-                        editors: [userId],
-                        viewers: [userId],
+                        editors: [user_group],
+                        viewers: [user_group],
                         last_modified: timestamp
                     })
                     .select('id')
@@ -816,12 +822,10 @@
     disabled={selectedIds.size === 0}
     
     onclick={() => {
-        selectedContract = visibleContracts.filter(
-            (c:any) =>
-            selectedIds.has(c.id)
-    );
+        selectedContractIds = visibleContracts
+            .filter((c:any) => selectedIds.has(c.id))
+            .map((c:any) => c.id);
     showManageAccess = true;
-        
     }}>Manage Access </button>
     </div>
     {/if}
@@ -968,51 +972,37 @@
     </div>
 {/if}
 
-{#if showManageAccess && selectedContract.length}
-<div
-    class="modal-overlay"
-    onclick={() => {
-        showManageAccess = false;
-    }}
->
-    <div
-        class="modal-content access-modal"
-        onclick={(e) => e.stopPropagation()}
-    >
+{#if showManageAccess && selectedContracts.length}
+<div class="modal-overlay">
+    <div class="modal-content access-modal">
 
         <div class="access-header">
             <h3>
-                Manage Access —
-                {selectedContract.title}
+                Manage Access
+                {#if selectedContracts.length === 1}
+                    — {selectedContracts[0].title}
+                {:else}
+                    ({selectedContracts.length} contracts)
+                {/if}
             </h3>
+        </div>
 
-            <button
-                class="btn-cancel"
-                onclick={() => {
-                    showManageAccess = false;
-                    selectedContract = [];
-                }}
-            >
-                Close
+        <div class="manage-access-scroll">
+            <ManageAccessPanel
+                contractIds={selectedContractIds}
+                groups={groups}
+                editors={allEditorIds}
+                viewers={allViewerIds}
+            />
+        </div>
+
+        <div class="access-footer">
+            <button class="btn-done" onclick={() => { showManageAccess = false; selectedContractIds = []; }}>
+                Done
             </button>
         </div>
-        <div class="manage-access-scroll">
-            {#each selectedContract as contract}
-            <div class="contract-access-card">
-                <h4 class="contract-access-title">
-                    {contract.title}
-                </h4>
-                <ManageAccessPanel
-                contractId={contract.id}
-                users={users}
-                editors={contract.editors ?? []}
-                viewers={contract.viewers ?? []}
-                />
-                </div>
-                {/each}
-            </div>
-        </div>
     </div>
+</div>
 {/if}
 
 <!-- CSV Import Modal -->
@@ -1588,19 +1578,6 @@
         text-decoration: underline;
         color: #7B1113;
     }
-    .contract-access-card {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    .contract-access-title {
-        margin-bottom: 1rem;
-        color: #02461C;
-        font-size: 1rem;
-    }
-    
     .manage-access-scroll {
         max-height: 70vh;
         overflow-y: auto;
@@ -1775,6 +1752,28 @@
     justify-content:space-between;
     align-items:center;
     margin-bottom:20px;
+}
+
+.access-footer{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:20px;
+}
+
+.btn-done{
+    background: #02461C;
+    color: white;
+    border: none;
+    padding: 10px 35px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    transition: background-color 0.2s ease;
+}
+
+.btn-done:hover{
+    background: #013014;
 }
 
     @media (max-width: 768px) {
