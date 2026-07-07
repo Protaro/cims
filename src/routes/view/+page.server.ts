@@ -101,8 +101,22 @@ export const actions: Actions = {
 
         const editors = [...(contract?.editors ?? [])];
 
-        if (!editors.includes(groupId)) {
-            editors.push(groupId);
+        // if (!editors.includes(groupId)) {
+        //     editors.push(groupId);
+        // }
+
+        const { data: editorsInGroup } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('user_group', parseInt(groupId, 10))
+        
+        const usersToAdd = (editorsInGroup ?? []).map(user => user.id);
+        console.log(usersToAdd)
+        
+        for (const e of usersToAdd) {
+            if(!editors.includes(e)) {
+                editors.push(e);
+            }
         }
 
         await supabase
@@ -130,9 +144,11 @@ removeEditor: async ({ request, locals: { supabase } }) => {
             .eq('id', id)
             .single();
 
-        const editors =
-            (contract?.editors ?? [])
-                .filter((gid:string) => gid !== groupId);
+        let editors = [...(contract?.editors ?? [])];
+
+        // const editors =
+        //     (contract?.editors ?? [])
+        //         .filter((gid:string) => gid !== groupId);
 
         await supabase
             .from('contracts')
@@ -144,12 +160,17 @@ removeEditor: async ({ request, locals: { supabase } }) => {
 },
 
 addViewer: async ({ request, locals: { supabase } }) => {
+    console.log("addViewer func reached, contractIds are:")
     const form = await request.formData();
 
     const contractIdsRaw = form.get('contractIds') as string;
     const groupId = form.get('groupId') as string;
 
     const contractIds: string[] = JSON.parse(contractIdsRaw);
+
+    console.log(contractIds)
+    console.log(`groupId to add is ${groupId}`)
+
     if (!contractIds || contractIds.length === 0) return fail(400, { error: 'Contract IDs required' });
 
     for (const id of contractIds) {
@@ -159,18 +180,41 @@ addViewer: async ({ request, locals: { supabase } }) => {
             .eq('id', id)
             .single();
 
-        const viewers = [...(contract?.viewers ?? [])];
+        let viewers = [...(contract?.viewers ?? [])];
+        console.log(`current viewers are: ${viewers}`)
 
-        if (!viewers.includes(groupId)) {
-            viewers.push(groupId);
+        const { data: viewersInGroup } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('user_group', parseInt(groupId, 10))
+        
+        const usersToAdd = (viewersInGroup ?? []).map(user => user.id);
+        console.log(usersToAdd)
+        
+        for (const e of usersToAdd) {
+            if(!viewers.includes(e)) {
+                viewers.push(e);
+            }
         }
 
         await supabase
             .from('contracts')
-            .update({ viewers })
+            .update( { viewers } )
             .eq('id', id);
-    }
+        
+        console.log(viewers)
 
+        // if (!viewers.includes(groupId)) {
+        //     viewers.push(groupId);
+        // }
+        
+
+        // await supabase
+        //     .from('contracts')
+        //     .update({ viewers })
+        //     .eq('id', id);
+    }
+    console.log("reached")
     return { success: true };
 },
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
+    import { supabase } from '$lib/supabaseInit';
 
 let {
     contractIds,
@@ -46,9 +47,63 @@ async function submitAction(action: string, groupId: string) {
     selectedViewerGroup = '';
     await invalidateAll();
 }
+
+async function getNameById(id : string) {
+    const { data : name} = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', id)
+        .single()
+
+    return name
+}
+
 </script>
 
 <div class="columns-row">
+    <div class="collab-column">
+        <div class="add-form">
+            <select class="select-input" bind:value={selectedEditorGroup}>
+                <option value="">Add as Editor</option>
+                {#each availableEditorGroups as group}
+                    <option value={group.id}>{group.group_name}</option>
+                {/each}
+            </select>
+            <button class="small-btn" disabled={!selectedEditorGroup} onclick={() => submitAction('addEditor', selectedEditorGroup)}>Add</button>
+        </div>
+
+        <h3>Editors</h3>
+        <div class="collab-list">
+            {#each editors as editor}
+                {getNameById(editor)}
+            {/each}
+        </div>
+    </div>
+
+    <div class="collab-column">
+        <div class="add-form">
+            <select class="select-input" bind:value={selectedViewerGroup}>
+                <option value="">Add as Viewer</option>
+                {#each availableViewerGroups as group}
+                    <option value={group.id}>{group.group_name}</option>
+                {/each}
+            </select>
+            <button class="small-btn" disabled={!selectedViewerGroup} onclick={() => submitAction('addViewer', selectedViewerGroup)}>Add</button>
+        </div>
+
+        <h3>Viewers</h3>
+        <div class="collab-list">
+            {#each viewers as viewer}
+                <div class="collab-item">
+                    <span>{viewer}</span>
+                    <button type="button" class="text-btn">Remove (not functional rn)</button>
+                </div>
+            {/each}
+        </div>
+    </div>
+</div>
+
+<!-- <div class="columns-row">
     <div class="collab-column">
         <div class="add-form">
             <select class="select-input" bind:value={selectedEditorGroup}>
@@ -92,7 +147,7 @@ async function submitAction(action: string, groupId: string) {
             {/each}
         </div>
     </div>
-</div>
+</div> -->
 
 <style>
 .columns-row {
