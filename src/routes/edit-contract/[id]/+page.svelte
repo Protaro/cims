@@ -312,11 +312,6 @@
                                 <Pencil size={16} strokeWidth={2.5} />
                                 <span>Rename</span>
                             </button>
-
-                            <button class="action-btn outline-btn" onclick={() => showCollaborators = !showCollaborators}>
-                                <Users size={16} strokeWidth={2.5} />
-                                <span>{showCollaborators ? 'Hide Access' : 'Manage Access'}</span>
-                            </button>
                             
                             <button class="action-btn publish-btn" onclick={saveContractToDB} disabled={isSaving}>
                                 {#if isSaving}
@@ -330,10 +325,6 @@
                         </div>
                     {/if}
                 </div>
-
-                {#if showCollaborators}
-                <ManageAccessPanel contractIds={[contractId]} groups={groups} editors={editors} viewers={viewers} />
-                {/if}
 
                 {#key contractData.id}
                     <EditContractMainPanel bind:contractData={contractData} bind:currentPhase={currentPhase} />

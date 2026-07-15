@@ -16,14 +16,8 @@ let {
 
 let selectedEditorGroup = $state('');
 let selectedViewerGroup = $state('');
-
-const editorGroups = $derived(
-    groups?.filter(g => editors?.includes(g.id)) ?? []
-);
-
-const viewerGroups = $derived(
-    groups?.filter(g => viewers?.includes(g.id)) ?? []
-);
+let editorNames = $state<Record<string, string>>({});
+let viewerNames = $state<Record<string, string>>({});
 
 const availableEditorGroups = $derived(
     groups?.filter(g => !editors?.includes(g.id)) ?? []
@@ -32,6 +26,40 @@ const availableEditorGroups = $derived(
 const availableViewerGroups = $derived(
     groups?.filter(g => !viewers?.includes(g.id)) ?? []
 );
+
+$effect(() => {
+    const currentEditors = editors ?? [];
+    for (const id of currentEditors) {
+        if (editorNames[id]) continue;
+        supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', id)
+            .single()
+            .then(({ data }) => {
+                if (data?.username) {
+                    editorNames = { ...editorNames, [id]: data.username };
+                }
+            });
+    }
+});
+
+$effect(() => {
+    const currentViewers = viewers ?? [];
+    for (const id of currentViewers) {
+        if (viewerNames[id]) continue;
+        supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', id)
+            .single()
+            .then(({ data }) => {
+                if (data?.username) {
+                    viewerNames = { ...viewerNames, [id]: data.username };
+                }
+            });
+    }
+});
 
 async function submitAction(action: string, groupId: string) {
     const body = new URLSearchParams();
@@ -46,16 +74,6 @@ async function submitAction(action: string, groupId: string) {
     selectedEditorGroup = '';
     selectedViewerGroup = '';
     await invalidateAll();
-}
-
-async function getNameById(id : string) {
-    const { data : name} = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', id)
-        .single()
-
-    return name
 }
 
 </script>
@@ -75,7 +93,10 @@ async function getNameById(id : string) {
         <h3>Editors</h3>
         <div class="collab-list">
             {#each editors as editor}
-                {getNameById(editor)}
+                <div class="collab-item">
+                    <span>{editorNames[editor] ?? editor}</span>
+                    <button type="button" class="text-btn" onclick={() => submitAction('removeEditor', editor)}>Remove</button>
+                </div>
             {/each}
         </div>
     </div>
@@ -95,60 +116,14 @@ async function getNameById(id : string) {
         <div class="collab-list">
             {#each viewers as viewer}
                 <div class="collab-item">
-                    <span>{viewer}</span>
-                    <button type="button" class="text-btn">Remove (not functional rn)</button>
+                    <span>{viewerNames[viewer] ?? viewer}</span>
+                    <button type="button" class="text-btn" onclick={() => submitAction('removeViewer', viewer)}>Remove</button>
                 </div>
             {/each}
         </div>
     </div>
 </div>
-
-<!-- <div class="columns-row">
-    <div class="collab-column">
-        <div class="add-form">
-            <select class="select-input" bind:value={selectedEditorGroup}>
-                <option value="">Add as Editor</option>
-                {#each availableEditorGroups as group}
-                    <option value={group.id}>{group.group_name}</option>
-                {/each}
-            </select>
-            <button class="small-btn" disabled={!selectedEditorGroup} onclick={() => submitAction('addEditor', selectedEditorGroup)}>Add</button>
-        </div>
-
-        <h3>Editors</h3>
-        <div class="collab-list">
-            {#each editorGroups as group}
-                <div class="collab-item">
-                    <span>{group.group_name}</span>
-                    <button type="button" class="text-btn" onclick={() => submitAction('removeEditor', group.id)}>Remove</button>
-                </div>
-            {/each}
-        </div>
-    </div>
-
-    <div class="collab-column">
-        <div class="add-form">
-            <select class="select-input" bind:value={selectedViewerGroup}>
-                <option value="">Add as Viewer</option>
-                {#each availableViewerGroups as group}
-                    <option value={group.id}>{group.group_name}</option>
-                {/each}
-            </select>
-            <button class="small-btn" disabled={!selectedViewerGroup} onclick={() => submitAction('addViewer', selectedViewerGroup)}>Add</button>
-        </div>
-
-        <h3>Viewers</h3>
-        <div class="collab-list">
-            {#each viewerGroups as group}
-                <div class="collab-item">
-                    <span>{group.group_name}</span>
-                    <button type="button" class="text-btn" onclick={() => submitAction('removeViewer', group.id)}>Remove</button>
-                </div>
-            {/each}
-        </div>
-    </div>
-</div> -->
-
+    
 <style>
 .columns-row {
     display: grid;

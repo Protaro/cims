@@ -146,9 +146,7 @@ removeEditor: async ({ request, locals: { supabase } }) => {
 
         let editors = [...(contract?.editors ?? [])];
 
-        // const editors =
-        //     (contract?.editors ?? [])
-        //         .filter((gid:string) => gid !== groupId);
+        editors = editors.filter((id: string) => id !== groupId);
 
         await supabase
             .from('contracts')

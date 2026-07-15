@@ -77,6 +77,10 @@
     const visibleContracts = $derived(
         (contracts ?? [])
             .filter(c => {
+                if (!c.editors?.includes(session_id) && !c.viewers?.includes(session_id) &&
+                    !c.editors?.includes(user_group) && !c.viewers?.includes(user_group)) {
+                    return false;
+                }
                 if (yearValues.length > 0) {
                     const y = new Date(c.created_at).getFullYear().toString();
                     if (!yearValues.includes(y)) return false;
