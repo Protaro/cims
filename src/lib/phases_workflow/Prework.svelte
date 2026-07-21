@@ -19,6 +19,7 @@
 
   // Store dictionary reqs from the DB
   let availableReqs: { id: number, name: string, type: string }[] =[];
+  let sortedAvailableReqs: { id: number, name: string, type: string }[] = [];
   let selectedExistingId: number | '' = '';
 
   let checklist: Item[] =[];
@@ -33,6 +34,7 @@
         .order('name');
     
     if (allReqs) availableReqs = allReqs;
+    sortedAvailableReqs = [...availableReqs].sort((a, b) => a.name.localeCompare(b.name));
   });
 
   // updates checklist when you click a different workflow
@@ -196,7 +198,7 @@
             <div class="existing-adder">
                 <select class="existing-dropdown" bind:value={selectedExistingId}>
                     <option value="" disabled selected>Add existing field...</option>
-                    {#each availableReqs as req}
+                    {#each sortedAvailableReqs as req}
                         <option value={req.id}>{req.name} ({req.type})</option>
                     {/each}
                 </select>
