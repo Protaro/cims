@@ -236,9 +236,10 @@
     }
 
     async function saveContractToDB(silent = false, statusOverride: string | null = null) {
+        console.log(selectedWorkflow);
         isSaving = true;
         const finalTitle = ContractName;
-        const finalContractType = contractData.postwork.contractType || "Scholarship";
+        const finalContractType = selectedWorkflow.name || "Standard";
         const finalContractStatus = statusOverride ?? (contractData.postwork.contractStatus || "On Hold");
         
         const timestamp = new Date().toISOString(); 
